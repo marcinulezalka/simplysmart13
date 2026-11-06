@@ -15,6 +15,10 @@ namespace Tests\Feature\Install;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Simplysmart\Polygon\Database\IdSlots;
+use Simplysmart\Polygon\Database\Seeders\OrganizationsSeeder;
+use Simplysmart\Polygon\Install\Installer as PolygonInstaller;
+use Simplysmart\Polygon\Models\Organization;
+use Simplysmart\Polygon\Models\OrganizationMember;
 use Simplysmart\Polygon\Install\InstallFileParser;
 use Simplysmart\Polygon\Install\Installer;
 use Simplysmart\Polygon\Install\InvalidInstallFile;
@@ -31,7 +35,8 @@ use Tests\TestCase;
  * (support, owner) na katalogu ról każdej strefy (guest, support, owner, hero — root ze wszystkimi uprawnieniami, także
  * dodanymi przez projekt — oraz registration, doctor, accountant, analyst, manager) i konto support z losowym
  * id poniżej 1000; enumy BaseRole/PolygonPermission są zgodne z plikiem i mają etykiety pl/en; plik projektu (POLYGON_INSTALL_FILES) dokłada role i konta; błędny plik niczego nie zapisuje;
- * ponowna instalacja nic nie dubluje.
+ * ponowna instalacja nic nie dubluje. Organizacje z sekcji `organizations` (klucz, drzewo, typ jednostki, dane firmy)
+ * powstają tylko brakujące, a konta z `organizations` zostają ich członkami (personelem).
  */
 class InstallerTest extends TestCase
 {
@@ -167,6 +172,109 @@ class InstallerTest extends TestCase
                 $this->assertNotSame('roles.' . $role->value, $role->label(), "{$locale}: {$role->value}");
             }
         }
+    }
+
+    public function test_organizations_are_created_as_a_tree_and_accounts_join_them_as_staff(): void
+    {
+        $this->seed(OrganizationsSeeder::class);
+        config(['polygon.install.files' => [$this->file($this->organizationFile())]]);
+
+        $this->command('polygon:install')
+            ->expectsOutput('Organizacja założona: Centrum Medyczne.')
+            ->expectsOutput('Organizacja założona: Rejestracja.')
+            ->assertSuccessful();
+
+        $clinic = $this->installed('clinic');
+        $desk = $this->installed('clinic-desk');
+        $this->assertSame(['Centrum Medyczne', 'CM', '1234567890', 'Warszawa', true], [$clinic->name, $clinic->short_name, $clinic->nip, $clinic->city, $clinic->is_active]);
+        $this->assertSame('placowka', $clinic->unitType?->code);
+        $this->assertSame($clinic->id, $desk->parent_id);
+        $this->assertTrue($desk->is_department);
+        $this->assertSame(['anna@example.com', 'jan@example.com'], $this->staff($clinic));
+        $this->assertSame(['anna@example.com'], $this->staff($desk));
+    }
+
+    public function test_running_again_keeps_organizations_and_adds_memberships_to_existing_accounts(): void
+    {
+        $this->seed(OrganizationsSeeder::class);
+        config(['polygon.install.files' => [$this->file($this->organizationFile(secondAccountJoins: false))]]);
+        $this->command('polygon:install')->assertSuccessful();
+        $this->installed('clinic')->forceFill(['name' => 'Zmieniona w aplikacji'])->save();
+        $members = OrganizationMember::query()->count();
+
+        config(['polygon.install.files' => [$this->file($this->organizationFile())]]);
+        $this->command('polygon:install')->expectsOutput('Organizacja już istnieje: Zmieniona w aplikacji (bez zmian).')->assertSuccessful();
+
+        $this->assertSame(2, Organization::query()->where('json_attributes->' . PolygonInstaller::INSTALL_KEY, '!=', '')->count());
+        $this->assertSame('Zmieniona w aplikacji', $this->installed('clinic')->name);
+        $this->assertSame($members + 1, OrganizationMember::query()->count(), 'Istniejące konto dostaje członkostwo z pliku.');
+        $this->assertSame(['anna@example.com', 'jan@example.com'], $this->staff($this->installed('clinic')));
+    }
+
+    public function test_invalid_organizations_write_nothing(): void
+    {
+        $this->seed(OrganizationsSeeder::class);
+        $organizations = Organization::query()->count();
+        $broken = [
+            'undefined organization of an account' => ['zones' => ['polygon' => ['accounts' => [['email' => 'x@example.com', 'name' => 'X', 'organizations' => ['missing']]]]]],
+            'undefined parent' => ['organizations' => ['a' => ['name' => 'A', 'parent' => 'missing']]],
+            'cycle' => ['organizations' => ['a' => ['name' => 'A', 'parent' => 'b'], 'b' => ['name' => 'B', 'parent' => 'a']]],
+            'unknown unit type' => ['organizations' => ['a' => ['name' => 'A', 'unit_type' => 'missing']], 'zones' => ['polygon' => ['accounts' => [['email' => 'x@example.com', 'name' => 'X', 'organizations' => ['a']]]]]],
+            'unknown field' => ['organizations' => ['a' => ['name' => 'A', 'website' => 'x']]],
+            'missing name' => ['organizations' => ['a' => ['city' => 'Kraków']]],
+            'too long NIP' => ['organizations' => ['a' => ['name' => 'A', 'nip' => '12345678901']]],
+            'bad key' => ['organizations' => ['Bad Key' => ['name' => 'A']]],
+        ];
+
+        foreach ($broken as $case => $data) {
+            config(['polygon.install.files' => [$this->file($data)]]);
+
+            $this->command('polygon:install')->assertFailed();
+
+            $this->assertSame($organizations, Organization::query()->count(), $case);
+            $this->assertSame([0, 0, 0], $this->counts(), $case);
+        }
+    }
+
+    /**
+     * Plik z placówką „Centrum Medyczne” i jej działem „Rejestracja” oraz dwoma kontami strefy polygon (personel).
+     *
+     * @param bool $secondAccountJoins Czy drugie konto (Jan) jest członkiem placówki.
+     *
+     * @return array<string, mixed>
+     */
+    private function organizationFile(bool $secondAccountJoins = true): array
+    {
+        return [
+            'organizations' => [
+                'clinic-desk' => ['name' => 'Rejestracja', 'parent' => 'clinic', 'unit_type' => 'rejestracja', 'is_department' => true],
+                'clinic' => ['name' => 'Centrum Medyczne', 'short_name' => 'CM', 'unit_type' => 'placowka', 'nip' => '1234567890', 'city' => 'Warszawa'],
+            ],
+            'zones' => ['polygon' => ['accounts' => [
+                ['email' => 'anna@example.com', 'name' => 'Anna Nowak', 'roles' => ['registration'], 'organizations' => ['clinic', 'clinic-desk']],
+                ['email' => 'jan@example.com', 'name' => 'Jan Kowalski', 'roles' => ['doctor'], 'organizations' => $secondAccountJoins ? ['clinic'] : []],
+            ]]],
+        ];
+    }
+
+    private function installed(string $key): Organization
+    {
+        return Organization::query()->where('json_attributes->' . PolygonInstaller::INSTALL_KEY, $key)->sole();
+    }
+
+    /**
+     * Adresy kont strefy polygon będących członkami organizacji, posortowane.
+     *
+     * @return list<string>
+     */
+    private function staff(Organization $organization): array
+    {
+        $emails = OrganizationMember::query()->where(Organization::FOREIGN_KEY, $organization->id)->get()
+            ->map(static fn(OrganizationMember $member): string => PolygonAccount::query()->findOrFail($member->model_id)->emailAddress())
+            ->all();
+        sort($emails);
+
+        return $emails;
     }
 
     /**

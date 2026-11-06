@@ -38,13 +38,16 @@ Polskie komunikaty Laravela (walidacja, logowanie, hasła, paginacja) i helpery 
 - `infrastructure/` — lokalny, poza repozytorium (`.gitignore`), tworzony na każdym komputerze osobno:
   - `infrastructure/ssl/` — certyfikat SSL (mkcert),
   - `infrastructure/config/` — vhost Apache i pula PHP-FPM,
-  - `infrastructure/deploy/vendors/<projekt>.env` — konfiguracje wdrażanych projektów (wzór w paczce `simplysmart/polygon`: `resources/deploy/deploy-vendor.env.example`)
+  - `infrastructure/deploy/vendors/<projekt>.env` — konfiguracje wdrażanych projektów (wzór w paczce `simplysmart/polygon`: `resources/deploy/deploy-vendor.env.example`),
+  - `infrastructure/deploy/vendors/<projekt>.json` — opcjonalny plik instalacji projektu (konta, role i uprawnienia stref; format: `vendor/simplysmart/polygon/docs/instalacja.md`)
 
 ## Wdrożenie
 
 Uruchamiane na komputerze deweloperskim przez `vendor/bin/deploy` z paczki `simplysmart/polygon` (`remote.sh` trafia na serwer przez `ssh … bash -s`). Konfiguracja projektu: lokalny `infrastructure/deploy/vendors/<projekt>.env` (poza repozytorium).
 
 Każde wdrożenie buduje świeży manifest wdrożeniowy (`composer.deploy.json` i `composer.deploy.lock`, git-ignorowane): paczki z lokalnych repozytoriów path (`../packages/*/*`) dostają repozytoria git (`origin`) zamiast katalogów. Manifest jest kopiowany do przed-produkcji i wysyłany na serwer (`scp`), a `composer install --no-dev` instaluje z niego paczki. Dlatego przed wdrożeniem wypchnij zmienione paczki, a lokalny Composer musi mieć dostęp do ich repozytoriów (token GitHub: `composer config -g github-oauth.github.com <token>`). Na serwerze musi być klon repozytorium z `.env.production` (kopiowanym przy każdym wdrożeniu jako `.env`).
+
+Po migracjach każde wdrożenie uruchamia `php artisan polygon:install`: uprawnienia i role z plików paczek, `POLYGON_INSTALL_FILES` z `.env` oraz `infrastructure/deploy/vendors/<projekt>.json`, jeśli jest (deploy przesyła go do obu środowisk jako `storage/app/<projekt>.install.json`). Instalacja jest idempotentna. Słowników i organizacji deploy nie seeduje — przy pierwszej instalacji uruchom w każdym środowisku `php artisan db:seed --force`.
 
 ```bash
 cp vendor/simplysmart/polygon/resources/deploy/deploy-vendor.env.example infrastructure/deploy/vendors/simplysmart13.env   # raz, uzupełnij
