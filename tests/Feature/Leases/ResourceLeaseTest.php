@@ -26,6 +26,7 @@ use Simplysmart\Polygon\Database\History;
 use Simplysmart\Polygon\Database\IdSlots;
 use Simplysmart\Polygon\Database\Seeders\OrganizationsSeeder;
 use Simplysmart\Polygon\Enums\LeaseAccess;
+use Simplysmart\Polygon\Enums\LeaseMode;
 use Simplysmart\Polygon\Enums\ResourceKind;
 use Simplysmart\Polygon\Leases\LeaseConflict;
 use Simplysmart\Polygon\Leases\LeaseInput;
@@ -229,6 +230,33 @@ class ResourceLeaseTest extends ZoneTestCase
         $this->assertCount(16, $slots->on($this->cooperation, $this->guest, CarbonImmutable::parse('2026-11-27')));
         $this->assertCount(16, $slots->on($this->clinic, $this->doctor, CarbonImmutable::parse('2026-11-20')), 'W tygodnie bez najmu gabinet ma właściciel.');
         $this->assertSame([], $slots->on($this->clinic, $this->doctor, CarbonImmutable::parse('2026-11-27')));
+    }
+
+    public function test_an_on_demand_lease_fills_only_the_free_time_of_the_room(): void
+    {
+        $this->lease();
+        $this->schedule($this->clinic, $this->doctor, 2, '12:00', '14:00');
+        $dietitian = $this->account(AlphaAccount::class, ['email' => 'dietetyk@example.com', 'name' => 'Dietetyk']);
+        $other = $this->organization('Dietetyka');
+        $flexible = $this->organization('Dietetyka — kooperacja', ['parent_id' => $other->id, Organization::IS_COOPERATION => true]);
+        $windows = new LeaseWindows([[1, '08:00', '20:00'], [2, '08:00', '20:00']]);
+        $lease = $this->app->make(SaveLease::class)->save(new LeaseInput($this->clinic, $this->room->id, $other, $flexible, 'UN/9', CarbonImmutable::parse(self::MONDAY), null, $windows, [LeaseAccess::Book], null, 1, LeaseMode::OnDemand));
+        $save = $this->app->make(SaveSchedule::class);
+
+        $this->assertScheduleConflicts([ScheduleConflict::OutsideLease, ScheduleConflict::ResourceTaken], new ScheduleInput($flexible->id, $this->room->id, $dietitian, 2, '08:00', '20:00', 30, CarbonImmutable::parse(self::MONDAY)));
+        $save->save(new ScheduleInput($flexible->id, $this->room->id, $dietitian, 2, '08:00', '20:00', 30, CarbonImmutable::parse(self::MONDAY), null, 1, true));
+        $save->save(new ScheduleInput($this->clinic->id, $this->room->id, $this->doctor, 1, '09:00', '10:00', 15, CarbonImmutable::parse(self::MONDAY)));
+
+        $times = array_map(static fn($slot): string => $slot->startsAt->format('H:i'), $this->app->make(FreeSlots::class)->on($flexible, $dietitian, CarbonImmutable::parse(self::TUESDAY)));
+        $this->assertNotContains('08:30', $times, 'Okno najmu na wyłączność innej kooperacji (wt 08:00–12:00).');
+        $this->assertNotContains('13:00', $times, 'Grafik właściciela (wt 12:00–14:00).');
+        $this->assertNotContains('19:00', $times, 'Okno na wyłączność wt 18:00–22:00.');
+        $this->assertSame(['14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30'], $times);
+
+        $booking = $this->app->make(BookSlot::class)->book($flexible, $dietitian, CarbonImmutable::parse(self::TUESDAY . ' 14:00'), self::KIND);
+        $this->app->make(BookSlot::class)->book($flexible, $dietitian, CarbonImmutable::parse(self::TUESDAY . ' 15:00'), self::KIND);
+        $this->assertSame(['booked' => 2], $this->app->make(ResourceLeases::class)->bookingCounts($lease, CarbonImmutable::parse('2026-11-01'), CarbonImmutable::parse('2026-11-30')));
+        $this->assertSame(1, ResourceBooking::query()->whereKey($booking->id)->count());
     }
 
     public function test_install_files_create_the_lease_and_the_lessee_schedule_once(): void
