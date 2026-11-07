@@ -212,6 +212,25 @@ class ResourceLeaseTest extends ZoneTestCase
         $this->assertInstanceOf(WallboardEntry::class, $entries[0]);
     }
 
+    public function test_a_lease_every_two_weeks_frees_the_other_weeks(): void
+    {
+        $friday = CarbonImmutable::parse('2026-11-13');
+        $this->app->make(SaveLease::class)->save(new LeaseInput($this->clinic, $this->room->id, $this->lessee, $this->cooperation, 'UN/2', $friday, null, new LeaseWindows([[5, '13:00', '17:00']]), [LeaseAccess::Book], null, 2));
+        $save = $this->app->make(SaveSchedule::class);
+
+        $this->assertScheduleConflicts([ScheduleConflict::OutsideLease], new ScheduleInput($this->cooperation->id, $this->room->id, $this->guest, 5, '13:00', '17:00', 15, $friday));
+        $save->save(new ScheduleInput($this->cooperation->id, $this->room->id, $this->guest, 5, '13:00', '17:00', 15, $friday, null, 2));
+        $this->assertScheduleConflicts([ScheduleConflict::LeasedOut, ScheduleConflict::ResourceTaken], new ScheduleInput($this->clinic->id, $this->room->id, $this->doctor, 5, '13:00', '17:00', 15, $friday));
+        $save->save(new ScheduleInput($this->clinic->id, $this->room->id, $this->doctor, 5, '13:00', '17:00', 15, CarbonImmutable::parse('2026-11-20'), null, 2));
+
+        $slots = $this->app->make(FreeSlots::class);
+        $this->assertCount(16, $slots->on($this->cooperation, $this->guest, $friday));
+        $this->assertSame([], $slots->on($this->cooperation, $this->guest, CarbonImmutable::parse('2026-11-20')));
+        $this->assertCount(16, $slots->on($this->cooperation, $this->guest, CarbonImmutable::parse('2026-11-27')));
+        $this->assertCount(16, $slots->on($this->clinic, $this->doctor, CarbonImmutable::parse('2026-11-20')), 'W tygodnie bez najmu gabinet ma właściciel.');
+        $this->assertSame([], $slots->on($this->clinic, $this->doctor, CarbonImmutable::parse('2026-11-27')));
+    }
+
     public function test_install_files_create_the_lease_and_the_lessee_schedule_once(): void
     {
         $this->seed(OrganizationsSeeder::class);
