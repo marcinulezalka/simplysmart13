@@ -23,6 +23,9 @@ use Simplysmart\Polygon\Models\Dictionaries\ExchangeRate;
 use Simplysmart\Polygon\Models\Dictionaries\Holiday;
 use Simplysmart\Polygon\Models\Dictionaries\MeasureUnit;
 use Simplysmart\Polygon\Models\Organization;
+use Simplysmart\Polygon\Models\Contractor;
+use Simplysmart\Polygon\Models\ContractorContact;
+use Simplysmart\Polygon\Models\ContractorContract;
 use Simplysmart\Polygon\Models\OrganizationMember;
 use Simplysmart\Polygon\Models\OrganizationResource;
 use Simplysmart\Polygon\Models\OrganizationUnitType;
@@ -68,6 +71,9 @@ class DictionaryModelsTest extends TestCase
             'organization unit type' => [OrganizationUnitType::class],
             'organization member' => [OrganizationMember::class],
             'organization resource' => [OrganizationResource::class],
+            'contractor' => [Contractor::class],
+            'contractor contact' => [ContractorContact::class],
+            'contractor contract' => [ContractorContract::class],
         ];
     }
 
