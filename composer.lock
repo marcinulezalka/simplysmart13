@@ -3277,7 +3277,7 @@
             "dist": {
                 "type": "path",
                 "url": "../packages/simplysmart/polygon",
-                "reference": "fecc87690d10decc7368267f450caec95df7c3b6"
+                "reference": "80b1c46184b489b9d71843106722a60b1a27fc9e"
             },
             "require": {
                 "ext-bcmath": "*",

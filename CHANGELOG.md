@@ -6,7 +6,7 @@ Format oparty na [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/).
 
 ### Added
 
-- Organizacje i personel w plikach instalacji (`simplysmart/polygon`): sekcja `organizations` (drzewo, typ jednostki, dane firmy) i `organizations` w kontach stref; nowy typ jednostki „Siedziba”.
+- Organizacje i personel w plikach instalacji (`simplysmart/polygon`): sekcja `organizations` (drzewo, typ jednostki, dane firmy) i `organizations` w kontach stref; nowy typ jednostki „Siedziba”; `"parent": "simplysmart"` wpina organizację pod niewidoczną we frontendzie organizację hero (root operatora).
 - Wdrożenie przesyła opcjonalny plik instalacji projektu `infrastructure/deploy/vendors/<projekt>.json` do przed-produkcji i na serwer, a po migracjach uruchamia typy jednostek (`polygon:organizations:seed`) i pliki instalacji (`polygon:install`).
 
 ## [13.0.0] - 2026-11-06

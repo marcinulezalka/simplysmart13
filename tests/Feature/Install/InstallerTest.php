@@ -211,6 +211,27 @@ class InstallerTest extends TestCase
         $this->assertSame(['anna@example.com', 'jan@example.com'], $this->staff($this->installed('clinic')));
     }
 
+    public function test_an_organization_can_sit_under_the_hidden_hero_organization(): void
+    {
+        $this->seed(OrganizationsSeeder::class);
+        config(['polygon.install.files' => [$this->file(['organizations' => ['client' => ['name' => 'Klient', 'parent' => Organization::HERO_KEY]]])]]);
+
+        $this->command('polygon:install')->expectsOutput('Organizacja założona: Klient.')->assertSuccessful();
+
+        $client = $this->installed('client');
+        $this->assertSame(Organization::HERO_ID, $client->parent_id);
+        $this->assertSame([$client->id], Organization::query()->visible()->pluck('id')->all(), 'Frontend stref pokazuje klienta, a organizacji hero nie.');
+    }
+
+    public function test_a_hero_parent_needs_the_hero_organization(): void
+    {
+        config(['polygon.install.files' => [$this->file(['organizations' => ['client' => ['name' => 'Klient', 'parent' => Organization::HERO_KEY]]])]]);
+
+        $this->command('polygon:install')->expectsOutputToContain('the hero organization does not exist')->assertFailed();
+
+        $this->assertSame(0, Organization::query()->count());
+    }
+
     public function test_invalid_organizations_write_nothing(): void
     {
         $this->seed(OrganizationsSeeder::class);
@@ -224,6 +245,8 @@ class InstallerTest extends TestCase
             'missing name' => ['organizations' => ['a' => ['city' => 'Kraków']]],
             'too long NIP' => ['organizations' => ['a' => ['name' => 'A', 'nip' => '12345678901']]],
             'bad key' => ['organizations' => ['Bad Key' => ['name' => 'A']]],
+            'reserved hero key' => ['organizations' => [Organization::HERO_KEY => ['name' => 'Inna']]],
+            'hero organization for an account' => ['zones' => ['polygon' => ['accounts' => [['email' => 'x@example.com', 'name' => 'X', 'organizations' => [Organization::HERO_KEY]]]]]],
         ];
 
         foreach ($broken as $case => $data) {
