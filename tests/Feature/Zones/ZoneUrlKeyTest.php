@@ -19,7 +19,7 @@ use Tests\Fixtures\Zones\GammaAccount;
 use Tests\Fixtures\Zones\GammaZoneServiceProvider;
 
 /**
- * Hash sesji w adresie (`url_key` strefy, Zones\ZoneUrlKey): trasy po zalogowaniu są pod `/<hash>/<slug>/…`, route()
+ * Hash sesji w adresie (`url_key` strefy, Zones\ZoneUrlKey): trasy po zalogowaniu są pod `/<slug>/<hash>/…`, route()
  * dokłada hash bieżącej sesji, a kontroler nie dostaje go w parametrach; brak, zły albo cudzy hash to 404 także dla
  * zalogowanego; logowanie i trasy publiczne zostają pod `/<slug>/…`.
  */
@@ -38,12 +38,12 @@ class ZoneUrlKeyTest extends ZoneTestCase
         $this->get('/gamma/signin')->assertOk();
         $open = $this->get('/gamma/open')->assertOk()->getContent();
         $this->assertIsString($open);
-        $this->assertMatchesRegularExpression('#/([a-z0-9]{' . ZoneUrlKey::LENGTH . '})/gamma/items/x$#', $open);
-        $key = (string) preg_replace('#^.*/([a-z0-9]{' . ZoneUrlKey::LENGTH . '})/gamma/items/x$#', '$1', $open);
+        $this->assertMatchesRegularExpression('#/gamma/([a-z0-9]{' . ZoneUrlKey::LENGTH . '})/items/x$#', $open);
+        $key = (string) preg_replace('#^.*/gamma/([a-z0-9]{' . ZoneUrlKey::LENGTH . '})/items/x$#', '$1', $open);
 
-        $this->signedIn($account, 'gamma')->get('/' . $key . '/gamma/items/abc')->assertOk()->assertSee('gamma item:abc:' . $account->id);
+        $this->signedIn($account, 'gamma')->get('/gamma/' . $key . '/items/abc')->assertOk()->assertSee('gamma item:abc:' . $account->id);
         $this->get('/gamma/items/abc')->assertNotFound();
-        $this->get('/' . str_repeat('a', ZoneUrlKey::LENGTH) . '/gamma/items/abc')->assertNotFound();
+        $this->get('/gamma/' . str_repeat('a', ZoneUrlKey::LENGTH) . '/items/abc')->assertNotFound();
     }
 
     public function test_another_session_has_another_hash(): void
@@ -54,6 +54,6 @@ class ZoneUrlKeyTest extends ZoneTestCase
         $second = (string) $this->withCookies([])->get('/gamma/open')->getContent();
 
         $this->assertNotSame($first, '');
-        $this->assertMatchesRegularExpression('#/[a-z0-9]{' . ZoneUrlKey::LENGTH . '}/gamma/items/x$#', $second);
+        $this->assertMatchesRegularExpression('#/gamma/[a-z0-9]{' . ZoneUrlKey::LENGTH . '}/items/x$#', $second);
     }
 }
