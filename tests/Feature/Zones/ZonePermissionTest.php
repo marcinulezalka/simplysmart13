@@ -84,6 +84,22 @@ class ZonePermissionTest extends ZoneTestCase
         $this->assertSame([], $roles->names($account, null), 'Role organizacji nie są globalne.');
     }
 
+    public function test_role_holders_are_the_active_accounts_with_the_role_in_that_organization(): void
+    {
+        $north = $this->organization('Północ');
+        $south = $this->organization('Południe');
+        $this->role('doctor', 'alpha');
+        $roles = $this->app->make(OrganizationRoles::class);
+        $anna = $this->account(AlphaAccount::class, ['name' => 'Anna', 'email' => 'anna@example.com']);
+        $roles->assign($anna, ['doctor'], $north->id);
+        $roles->assign($this->account(AlphaAccount::class, ['name' => 'Bartek', 'email' => 'bartek@example.com']), ['doctor'], $south->id);
+        $roles->assign($this->account(AlphaAccount::class, ['name' => 'Globalny', 'email' => 'global@example.com']), ['doctor'], null);
+        $roles->assign($this->account(AlphaAccount::class, ['name' => 'Nieaktywny', 'email' => 'off@example.com', 'is_active' => false]), ['doctor'], $north->id);
+
+        $this->assertSame([$anna->id], $roles->holders(AlphaAccount::class, 'doctor', $north->id)->pluck('id')->all());
+        $this->assertSame([], $roles->holders(AlphaAccount::class, 'owner', $north->id)->all());
+    }
+
     public function test_hero_keeps_its_global_roles_in_every_organization(): void
     {
         $this->seed(HeroOrganizationSeeder::class);

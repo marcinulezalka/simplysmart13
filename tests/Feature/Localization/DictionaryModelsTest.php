@@ -24,6 +24,7 @@ use Simplysmart\Polygon\Models\Dictionaries\Holiday;
 use Simplysmart\Polygon\Models\Dictionaries\MeasureUnit;
 use Simplysmart\Polygon\Models\Organization;
 use Simplysmart\Polygon\Models\OrganizationMember;
+use Simplysmart\Polygon\Models\OrganizationResource;
 use Simplysmart\Polygon\Models\OrganizationUnitType;
 use Simplysmart\Polygon\Models\Permissions\Permission;
 use Simplysmart\Polygon\Models\Permissions\Role;
@@ -66,6 +67,7 @@ class DictionaryModelsTest extends TestCase
             'organization' => [Organization::class],
             'organization unit type' => [OrganizationUnitType::class],
             'organization member' => [OrganizationMember::class],
+            'organization resource' => [OrganizationResource::class],
         ];
     }
 
