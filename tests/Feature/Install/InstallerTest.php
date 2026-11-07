@@ -297,20 +297,66 @@ class InstallerTest extends TestCase
         }
     }
 
+    public function test_attributes_reach_new_and_existing_organizations_and_accounts(): void
+    {
+        $this->seed(OrganizationsSeeder::class);
+        config(['polygon.install.files' => [$this->file($this->attributesFile('000000001234', 'lekarz'))]]);
+
+        $this->command('polygon:install')->assertSuccessful();
+
+        $clinic = $this->installed('clinic');
+        $this->assertSame(['000000001234', 'clinic'], [data_get($clinic->json_attributes, 'medical_registry.registry_book'), data_get($clinic->json_attributes, OrganizationInstaller::INSTALL_KEY)]);
+        $this->assertSame(['pwz' => '3123456', 'title' => 'lekarz'], data_get($this->zoneAccount('ewa@example.com')->getAttribute('json_attributes'), 'doctor'));
+
+        $clinic->forceFill(['json_attributes' => [...$clinic->json_attributes ?? [], 'icon' => 'heart']])->save();
+        config(['polygon.install.files' => [$this->file($this->attributesFile('000000001235', 'lekarz dentysta'))]]);
+        $this->command('polygon:install')->assertSuccessful();
+
+        $clinic->refresh();
+        $this->assertSame(['000000001235', 'heart', 'clinic'], [data_get($clinic->json_attributes, 'medical_registry.registry_book'), data_get($clinic->json_attributes, 'icon'), data_get($clinic->json_attributes, OrganizationInstaller::INSTALL_KEY)]);
+        $this->assertSame('lekarz dentysta', data_get($this->zoneAccount('ewa@example.com')->getAttribute('json_attributes'), 'doctor.title'));
+    }
+
+    public function test_reserved_or_malformed_attributes_write_nothing(): void
+    {
+        $this->seed(OrganizationsSeeder::class);
+
+        foreach ([['install_key' => 'x'], ['Bad-Key' => 1], ['deep' => ['a' => ['b' => ['c' => ['d' => 1]]]]]] as $attributes) {
+            config(['polygon.install.files' => [$this->file($this->organizationFile(clinicAttributes: $attributes))]]);
+
+            $this->command('polygon:install')->assertFailed();
+            $this->assertSame(0, Organization::query()->where('name', 'Centrum Medyczne')->count());
+        }
+    }
+
+    /**
+     * Plik organizacji z księgą rejestrową placówki i kontem Ewy z tytułem lekarza w atrybutach.
+     *
+     * @return array<string, mixed>
+     */
+    private function attributesFile(string $registryBook, string $title): array
+    {
+        return $this->organizationFile(
+            extraAccount: ['email' => 'ewa@example.com', 'name' => 'Ewa Lis', 'organizations' => ['clinic' => []], 'attributes' => ['doctor' => ['pwz' => '3123456', 'title' => $title]]],
+            clinicAttributes: ['medical_registry' => ['registry_book' => $registryBook]],
+        );
+    }
+
     /**
      * Plik z placówką „Centrum Medyczne” i jej działem „Rejestracja” oraz dwoma kontami strefy polygon (personel).
      *
      * @param bool $secondAccountJoins Czy drugie konto (Jan) jest członkiem placówki.
      * @param array<string, mixed>|null $extraAccount Trzecie konto strefy polygon (np. z rolami per organizacja).
+     * @param array<string, mixed>|null $clinicAttributes Atrybuty placówki (`attributes`).
      *
      * @return array<string, mixed>
      */
-    private function organizationFile(bool $secondAccountJoins = true, ?array $extraAccount = null): array
+    private function organizationFile(bool $secondAccountJoins = true, ?array $extraAccount = null, ?array $clinicAttributes = null): array
     {
         return [
             'organizations' => [
                 'clinic-desk' => ['name' => 'Rejestracja', 'parent' => 'clinic', 'unit_type' => 'rejestracja', 'is_department' => true],
-                'clinic' => ['name' => 'Centrum Medyczne', 'short_name' => 'CM', 'unit_type' => 'placowka', 'nip' => '1234567890', 'city' => 'Warszawa'],
+                'clinic' => ['name' => 'Centrum Medyczne', 'short_name' => 'CM', 'unit_type' => 'placowka', 'nip' => '1234567890', 'city' => 'Warszawa', ...($clinicAttributes === null ? [] : ['attributes' => $clinicAttributes])],
             ],
             'zones' => ['polygon' => ['accounts' => [
                 ['email' => 'anna@example.com', 'name' => 'Anna Nowak', 'roles' => ['registration'], 'organizations' => ['clinic', 'clinic-desk']],
