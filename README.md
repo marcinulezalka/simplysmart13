@@ -1,65 +1,37 @@
 # simplysmart13
 
-Aplikacja Laravel 13 na paczce `simplysmart/polygon`.
+**Gotowy fundament aplikacji biznesowych simplysmart.** simplysmart13 to instalacja bazowa, na której powstają systemy dla firm i placówek — z bezpiecznym logowaniem, strukturą organizacyjną, uprawnieniami, słownikami i pełnym audytem zmian dostępnymi od pierwszego uruchomienia. Nowy system nie zaczyna się od zera: zespół buduje tylko to, co wyróżnia danego klienta.
 
-## Stos
+## Dla kogo
 
-- Laravel 13 (PHP ^8.4), baza MySQL 8 (lokalnie wg `.env`; testy na SQLite w pamięci z `phpunit.xml`)
-- `spatie/laravel-permission` — role i uprawnienia (tabele i konfiguracja z `simplysmart/polygon`, bez zespołów)
-- `simplysmart/polygon` (`require`) — rdzeń bazy danych: wszystkie migracje i seedery (projekt nie ma własnych `database/migrations/` ani `database/seeders/`), uprawnienia spatie (kolumny standardowe, historia zmian, pule id, tabele strefy `polygon_*`, słowniki lokalizacji z seederami; `vendor/simplysmart/polygon/docs/baza-danych.md`) oraz narzędzia wydań (`vendor/bin/version-release`) i wdrożeń (`vendor/bin/deploy`), lokalnie z `../packages/simplysmart/polygon` (repozytorium path `../packages/*/*`, symlink); na serwer trafia z repozytorium git
-- Laravel Boost — wytyczne i skille agentów w lokalnym (poza repozytorium, `.gitignore`) `.claude/skills/` (konfiguracja: `boost.json`, aktualizacja skilli Boost: `php artisan boost:update`); własne skille projektu (`changelog-before-commit`, `docs-after-tests`, `solid-dry`) leżą tam bezpośrednio, poza `boost.json`, więc Boost ich nie nadpisuje ani nie usuwa
+- **Firmy i sieci placówek**, które potrzebują jednego systemu dla wielu oddziałów, filii czy poradni — z jasnym podziałem, kto do czego ma dostęp.
+- **Zespoły wdrożeniowe simplysmart**, które na wspólnym rdzeniu uruchamiają kolejne systemy branżowe szybciej, taniej i w jednym, sprawdzonym standardzie.
 
-## Baza danych
+## Co zyskujesz na starcie
 
-```bash
-php artisan migrate                      # migracje projektu i paczki polygon
-php artisan db:seed                      # DatabaseSeeder z polygon: słowniki + pliki instalacji (role, konto support@simplysmart.pl)
-php artisan polygon:install              # same pliki instalacji (JSON paczki + POLYGON_INSTALL_FILES projektu)
-php artisan polygon:account:create jan@example.com "Jan Kowalski" --role=owner   # konto strefy polygon (polygon_accounts; PIN przy pierwszym logowaniu)
-```
+- **Wydzielone strefy systemu** — osobne „wejścia” dla różnych grup użytkowników (np. administracja, personel, klienci), każde z własnym logowaniem, sesją i zestawem uprawnień.
+- **Bezpieczne logowanie bez haseł** — jednorazowy kod z e-maila i osobisty PIN, z blokadami po nieudanych próbach, zaufanymi urządzeniami, blokadą ekranu i zapasowym adresem e-mail.
+- **Struktura organizacyjna** — drzewo organizacji (siedziba, placówki, filie, działy) z danymi firm i personelem przypisanym do jednostek.
+- **Uprawnienia w kontekście organizacji** — ta sama osoba może mieć różne role w różnych jednostkach (np. właściciel w jednej, lekarz w drugiej); system zawsze liczy uprawnienia w organizacji, w której użytkownik właśnie pracuje i pozwala ją zmienić w trakcie pracy.
+- **Gotowa konfiguracja startowa** — role, uprawnienia, organizacje i konta startowe opisane w plikach konfiguracyjnych i zakładane automatycznie przy instalacji oraz każdym wdrożeniu, bez ręcznego klikania.
+- **Słowniki globalne** — kraje, języki, waluty, stawki VAT, kursy walut NBP, dni wolne i jednostki miar gotowe do użycia.
+- **Pełny audyt zmian** — każda zmiana danych zapisuje się w historii: kto, co i kiedy zmienił, także zmiany wykonane przez zadania w tle.
+- **Lokalizacja** — teksty, kwoty, liczby i daty formatowane zgodnie z językiem i krajem użytkownika; system działa po polsku od pierwszego uruchomienia.
 
-Język, kraj i waluta przez `.env`: `APP_LOCALE=pl`, `APP_LOCALES=pl`, `APP_COUNTRY=PL`, `APP_CURRENCY=PLN` (słowniki po polsku, stawki VAT Polski; `config/polygon.php` w paczce). Każda zmiana danych trafia do `<tabela>_history` z aktorem (użytkownik żądania `web` albo zadanie kolejki).
+## Jakość i bezpieczeństwo wdrożeń
 
-## Tłumaczenia
+- **Kontrolowane wydania** — każda wersja ma numer i opis zmian ([CHANGELOG.md](CHANGELOG.md)), widoczny też na stronie startowej.
+- **Bezpieczne wdrożenia** — każda zmiana trafia najpierw na środowisko przed-produkcyjne, a na produkcję dopiero po potwierdzeniu.
+- **Automatyczne standardy** — styl kodu, analiza statyczna na najwyższym poziomie i testy sprawdzane przy każdej zmianie.
+- **Ochrona danych** — hasła, klucze i dane dostępowe środowisk nigdy nie trafiają do repozytorium.
 
-Polskie komunikaty Laravela (walidacja, logowanie, hasła, paginacja) i helpery `text_*` / `local_*` dostarcza `simplysmart/polygon` (`vendor/simplysmart/polygon/docs/tlumaczenia.md`). Szablon tłumaczeń: `php artisan polygon:translations:export en --output=en.json`, import: `php artisan polygon:translations:import en.json` (do `lang/vendor/`).
+## Jak to działa
 
-## Jakość kodu
+simplysmart13 łączy framework Laravel 13 z rdzeniem simplysmart (`simplysmart/polygon`), który dostarcza bazę danych, strefy, logowanie, organizacje, uprawnienia i narzędzia wdrożeniowe. Systemy branżowe dokładają do niego własne strefy i funkcje jako osobne pakiety — dzięki temu poprawki rdzenia trafiają do wszystkich systemów naraz, a aktualizacja Laravela sprowadza się do podbicia wersji.
 
-- `composer lint` / `composer format` — Laravel Pint, preset PER + `declare(strict_types=1)` (`pint.json`, nagłówek licencji w testach: `pint.header.json`)
-- `composer analyse` — PHPStan + Larastan, poziom `max` (`phpstan.neon`)
-- `composer test` — PHPUnit
-- `composer release -- --dry-run` (`vendor/bin/version-release` z `simplysmart/polygon`) — podgląd wydania SemVer na podstawie `CHANGELOG.md` (bez `--dry-run` zapisuje `VERSION` i `CHANGELOG.md`; MAJOR wymaga `--major-confirm`)
+## Dla programistów
 
-## Struktura
-
-- `app/`, `config/`, `routes/`, `resources/` — aplikacja Laravel, bez modeli w `app/` (konta strefy: `Simplysmart\Polygon\Models\PolygonAccount` w `polygon_accounts`; konta frontendu: `Simplysmart\Polygon\Models\User` w `users`); `database/` jest pusty (migracje, seedery i fabryki są w `simplysmart/polygon`)
-- `public/` — document root Laravela (punkt wejścia: `public/index.php`)
-- `infrastructure/` — lokalny, poza repozytorium (`.gitignore`), tworzony na każdym komputerze osobno:
-  - `infrastructure/ssl/` — certyfikat SSL (mkcert),
-  - `infrastructure/config/` — vhost Apache i pula PHP-FPM,
-  - `infrastructure/deploy/vendors/<projekt>.env` — konfiguracje wdrażanych projektów (wzór w paczce `simplysmart/polygon`: `resources/deploy/deploy-vendor.env.example`),
-  - `infrastructure/deploy/vendors/<projekt>.json` — opcjonalny plik instalacji projektu (konta, role i uprawnienia stref; format: `vendor/simplysmart/polygon/docs/instalacja.md`)
-
-## Wdrożenie
-
-Uruchamiane na komputerze deweloperskim przez `vendor/bin/deploy` z paczki `simplysmart/polygon` (`remote.sh` trafia na serwer przez `ssh … bash -s`). Konfiguracja projektu: lokalny `infrastructure/deploy/vendors/<projekt>.env` (poza repozytorium).
-
-Każde wdrożenie buduje świeży manifest wdrożeniowy (`composer.deploy.json` i `composer.deploy.lock`, git-ignorowane): paczki z lokalnych repozytoriów path (`../packages/*/*`) dostają repozytoria git (`origin`) zamiast katalogów. Manifest jest kopiowany do przed-produkcji i wysyłany na serwer (`scp`), a `composer install --no-dev` instaluje z niego paczki. Dlatego przed wdrożeniem wypchnij zmienione paczki, a lokalny Composer musi mieć dostęp do ich repozytoriów (token GitHub: `composer config -g github-oauth.github.com <token>`). Na serwerze musi być klon repozytorium z `.env.production` (kopiowanym przy każdym wdrożeniu jako `.env`).
-
-Po migracjach każde wdrożenie uruchamia `php artisan polygon:install`: uprawnienia i role z plików paczek, `POLYGON_INSTALL_FILES` z `.env` oraz `infrastructure/deploy/vendors/<projekt>.json`, jeśli jest (deploy przesyła go do obu środowisk jako `storage/app/<projekt>.install.json`). Instalacja jest idempotentna. Słowników i organizacji deploy nie seeduje — przy pierwszej instalacji uruchom w każdym środowisku `php artisan db:seed --force`.
-
-```bash
-cp vendor/simplysmart/polygon/resources/deploy/deploy-vendor.env.example infrastructure/deploy/vendors/simplysmart13.env   # raz, uzupełnij
-composer deploy -- simplysmart13 --dry-run          # podgląd planu (z listą paczek manifestu)
-vendor/bin/composer-private --deploy --dry-run      # sam manifest: paczki z repozytoriów git
-composer deploy -- simplysmart13 --with-push        # git push, przed-produkcja, potem pytanie o produkcję
-composer deploy -- simplysmart13 --no-production    # tylko przed-produkcja
-composer deploy -- simplysmart13 --production       # produkcja bez pytania
-```
-
-Kroki i opcje: `vendor/simplysmart/polygon/docs/deploy.md`.
-
+Instalacja, baza danych, testy, standardy kodu i wdrożenia: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Licencja
 

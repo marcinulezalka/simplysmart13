@@ -12,6 +12,7 @@ Format oparty na [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/).
 
 ### Changed
 
+- README opisuje system biznesowo (dla kogo, co zyskuje firma na starcie, jakość wdrożeń); opis techniczny — stos, baza danych, testy, standardy kodu i wdrożenie — przeniesiony do `CONTRIBUTING.md` i zaktualizowany (role spatie z zespołami-organizacjami, oba układy konfiguracji wdrożeń, seed typów jednostek i organizacji hero przy każdym wdrożeniu).
 - Zestaw testów `Packages` uruchamia testy integracyjne tylko paczek zainstalowanych w projekcie (`vendor/simplysmart/*/tests/Integration`) zamiast wszystkich paczek z `../packages/simplysmart/`.
 
 ## [13.0.0] - 2026-11-06
