@@ -3,13 +3,14 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "build": "vite build",
-        "dev": "vite"
+        "build": "node vendor/simplysmart/polygon/bin/assets.mjs build",
+        "dev": "node vendor/simplysmart/polygon/bin/assets.mjs dev"
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.0.0",
         "concurrently": "^10.0.3",
         "laravel-vite-plugin": "^3.1",
+        "sass": "^1.108.0",
         "tailwindcss": "^4.0.0",
         "vite": "^8.0.0"
     },
