@@ -26,8 +26,8 @@ use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 /**
- * Tabele spatie/laravel-permission z migracji paczki simplysmart/polygon (bez zespołów): modele paczki z kolumnami
- * standardowymi, historia każdej tabeli i nadawanie ról użytkownikowi.
+ * Tabele spatie/laravel-permission z migracji paczki simplysmart/polygon z zespołami (zespół = organizacja): modele paczki
+ * z kolumnami standardowymi, historia każdej tabeli i nadawanie ról użytkownikowi.
  */
 class PermissionTablesTest extends TestCase
 {
@@ -35,13 +35,18 @@ class PermissionTablesTest extends TestCase
 
     private const string GUARD = 'web';
 
-    public function test_spatie_uses_the_polygon_models_without_teams(): void
+    public function test_spatie_uses_the_polygon_models_with_organizations_as_teams(): void
     {
         $registrar = $this->app->make(PermissionRegistrar::class);
 
         $this->assertSame(Role::class, $registrar->getRoleClass());
         $this->assertSame(Permission::class, $registrar->getPermissionClass());
-        $this->assertFalse($registrar->teams);
+        $this->assertTrue($registrar->teams);
+        $this->assertSame(PermissionTables::TEAM_FOREIGN_KEY, $registrar->teamsKey);
+
+        foreach (PermissionTables::TEAM_TABLES as $table) {
+            $this->assertTrue(Schema::hasColumn($table, PermissionTables::TEAM_FOREIGN_KEY), $table);
+        }
     }
 
     public function test_every_permission_table_has_history(): void

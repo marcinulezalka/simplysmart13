@@ -27,6 +27,7 @@ use Simplysmart\Polygon\Models\Permissions\Role;
 use Simplysmart\Polygon\Models\PolygonAccount;
 use Simplysmart\Polygon\Zones\PolygonPermission;
 use Simplysmart\Polygon\Permissions\BaseRole;
+use Simplysmart\Polygon\Permissions\OrganizationRoles;
 use Simplysmart\Polygon\Zones\PolygonZone;
 use Tests\TestCase;
 
@@ -36,7 +37,9 @@ use Tests\TestCase;
  * dodanymi przez projekt — oraz registration, doctor, accountant, analyst, manager) i konto support z losowym
  * id poniżej 1000; enumy BaseRole/PolygonPermission są zgodne z plikiem i mają etykiety pl/en; plik projektu (POLYGON_INSTALL_FILES) dokłada role i konta; błędny plik niczego nie zapisuje;
  * ponowna instalacja nic nie dubluje. Organizacje z sekcji `organizations` (klucz, drzewo, typ jednostki, dane firmy)
- * powstają tylko brakujące, a konta z `organizations` zostają ich członkami (personelem).
+ * powstają tylko brakujące, a konta z `organizations` zostają ich członkami (personelem) z rolami w każdej organizacji:
+ * `roles` konta w każdej jego organizacji (bez organizacji i dla hero — globalnie) oraz role z mapy
+ * `organizations: {klucz: [role]}` tylko w danej organizacji.
  */
 class InstallerTest extends TestCase
 {
@@ -118,6 +121,9 @@ class InstallerTest extends TestCase
             ['roles' => ['nurse' => ['permissions' => ['a.b']]]],
             ['roles' => ['hero' => ['permissions' => []]]],
             ['roles' => ['nurse' => ['permissions' => [], 'inherits' => ['guest']]]],
+            ['zones' => ['polygon' => ['accounts' => [['email' => 'a@example.com', 'name' => 'X', 'organizations' => ['clinic' => 'owner']]]]]],
+            ['zones' => ['polygon' => ['accounts' => [['email' => 'a@example.com', 'name' => 'X', 'organizations' => ['Bad Key' => ['owner']]]]]]],
+            ['zones' => ['polygon' => ['accounts' => [['email' => 'a@example.com', 'name' => 'X', 'organizations' => [Organization::HERO_KEY => ['owner']]]]]]],
         ];
 
         foreach ($files as $data) {
@@ -194,6 +200,38 @@ class InstallerTest extends TestCase
         $this->assertSame(['anna@example.com'], $this->staff($desk));
     }
 
+    public function test_staff_roles_are_given_per_organization(): void
+    {
+        $this->seed(OrganizationsSeeder::class);
+        $file = $this->organizationFile(extraAccount: ['email' => 'ewa@example.com', 'name' => 'Ewa Lis', 'organizations' => ['clinic' => ['owner'], 'clinic-desk' => ['doctor']]]);
+        config(['polygon.install.files' => [$this->file($file)]]);
+
+        $this->command('polygon:install')->assertSuccessful();
+
+        $roles = $this->app->make(OrganizationRoles::class);
+        $clinic = $this->installed('clinic')->id;
+        $desk = $this->installed('clinic-desk')->id;
+        $ewa = $this->zoneAccount('ewa@example.com');
+        $this->assertSame([['owner'], ['doctor'], []], [$roles->names($ewa, $clinic), $roles->names($ewa, $desk), $roles->names($ewa, null)]);
+        $anna = $this->zoneAccount('anna@example.com');
+        $this->assertSame([['registration'], ['registration'], []], [$roles->names($anna, $clinic), $roles->names($anna, $desk), $roles->names($anna, null)], '`roles` konta z organizacjami trafiają do każdej z nich.');
+        $this->assertSame(['ewa@example.com'], array_values(array_filter($this->staff($this->installed('clinic-desk')), static fn(string $email): bool => $email === 'ewa@example.com')));
+        $this->assertSame(['hero'], $roles->names(PolygonAccount::query()->get()->sole(static fn(PolygonAccount $account): bool => $account->emailAddress() === self::SUPPORT), null), 'Hero ma role globalne.');
+    }
+
+    public function test_an_undefined_role_of_an_organization_writes_nothing(): void
+    {
+        $this->seed(OrganizationsSeeder::class);
+        $organizations = Organization::query()->count();
+        $file = $this->organizationFile(extraAccount: ['email' => 'ewa@example.com', 'name' => 'Ewa Lis', 'organizations' => ['clinic' => ['missing']]]);
+        config(['polygon.install.files' => [$this->file($file)]]);
+
+        $this->command('polygon:install')->expectsOutputToContain('has the undefined role [missing]')->assertFailed();
+
+        $this->assertSame([0, 0, 0], $this->counts());
+        $this->assertSame($organizations, Organization::query()->count());
+    }
+
     public function test_running_again_keeps_organizations_and_adds_memberships_to_existing_accounts(): void
     {
         $this->seed(OrganizationsSeeder::class);
@@ -263,10 +301,11 @@ class InstallerTest extends TestCase
      * Plik z placówką „Centrum Medyczne” i jej działem „Rejestracja” oraz dwoma kontami strefy polygon (personel).
      *
      * @param bool $secondAccountJoins Czy drugie konto (Jan) jest członkiem placówki.
+     * @param array<string, mixed>|null $extraAccount Trzecie konto strefy polygon (np. z rolami per organizacja).
      *
      * @return array<string, mixed>
      */
-    private function organizationFile(bool $secondAccountJoins = true): array
+    private function organizationFile(bool $secondAccountJoins = true, ?array $extraAccount = null): array
     {
         return [
             'organizations' => [
@@ -276,8 +315,14 @@ class InstallerTest extends TestCase
             'zones' => ['polygon' => ['accounts' => [
                 ['email' => 'anna@example.com', 'name' => 'Anna Nowak', 'roles' => ['registration'], 'organizations' => ['clinic', 'clinic-desk']],
                 ['email' => 'jan@example.com', 'name' => 'Jan Kowalski', 'roles' => ['doctor'], 'organizations' => $secondAccountJoins ? ['clinic'] : []],
+                ...($extraAccount === null ? [] : [$extraAccount]),
             ]]],
         ];
+    }
+
+    private function zoneAccount(string $email): PolygonAccount
+    {
+        return PolygonAccount::query()->get()->sole(static fn(PolygonAccount $account): bool => $account->emailAddress() === $email);
     }
 
     private function installed(string $key): Organization
