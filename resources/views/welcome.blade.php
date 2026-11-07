@@ -113,7 +113,7 @@
 
         .ss-badge__version { font-family: var(--ss-font-mono); }
 
-        /* Błyskawica przy wersji (ikona zap jak w admiro): co 12 s spokojnie rozjaśnia się do koloru akcentu z lekkim
+        /* Błyskawica przy wersji (ikona zap): co 12 s spokojnie rozjaśnia się do koloru akcentu z lekkim
            powiększeniem i wraca (ok. 1,4 s, bez drgań). */
         .ss-badge__zap {
             flex: none;

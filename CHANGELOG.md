@@ -26,9 +26,9 @@ Pierwsze wydanie simplysmart-13 (numer wersji głównej zgodny z Laravel 13).
 - Podgląd wydania `composer release -- --dry-run`.
 - Paczka `simplysmart/polygon` (lokalnie z `../packages/simplysmart/polygon`): narzędzia wydań i wdrożeń oraz rdzeń bazy danych — tabela `users` z kolumnami standardowymi i historią, tabele strefy `polygon_*` i słowniki lokalizacji (`php artisan polygon:localization:seed`).
 - Role i uprawnienia `spatie/laravel-permission` (bez zespołów; tabele i konfiguracja z `simplysmart/polygon`).
-- Zakładanie kont strefy `polygon` (`polygon_accounts`, jak konta admiro): `php artisan polygon:account:create {email} {name} [--role=*] [--skip-existing]`; `users` zostaje dla kont frontendu.
-- Specyfikacja bazy danych jak w admiro (z `simplysmart/polygon`): odczyty i zarządzanie słownikami, przejścia stanu wiersza, etykiety kolumn każdego modelu w pl i en.
-- Domyślna konfiguracja systemu z plików instalacji JSON (`php artisan polygon:install`, także w `db:seed`): role strefy polygon jak w admiro (`guest`, `support`, `owner`, `hero` — root) i konto `support@simplysmart.pl` z rolą `hero` z losowym id poniżej 1000; własne pliki projektu przez `POLYGON_INSTALL_FILES` (wpis w `.env.example`).
+- Zakładanie kont strefy `polygon` (`polygon_accounts`): `php artisan polygon:account:create {email} {name} [--role=*] [--skip-existing]`; `users` zostaje dla kont frontendu.
+- Specyfikacja bazy danych (z `simplysmart/polygon`): odczyty i zarządzanie słownikami, przejścia stanu wiersza, etykiety kolumn każdego modelu w pl i en.
+- Domyślna konfiguracja systemu z plików instalacji JSON (`php artisan polygon:install`, także w `db:seed`): role strefy polygon (`guest`, `support`, `owner`, `hero` — root) i konto `support@simplysmart.pl` z rolą `hero` z losowym id poniżej 1000; własne pliki projektu przez `POLYGON_INSTALL_FILES` (wpis w `.env.example`).
 - Dni wolne Polski 2026–2027 i kursy NBP walut CHF, EUR, GBP, USD (29.10–05.11.2026) w słownikach (`HolidaysSeeder`, `ExchangeRatesSeeder` z `simplysmart/polygon`, dane jak w skeleton13).
 - Polskie komunikaty Laravela (walidacja, logowanie, hasła, paginacja), helpery `text_*` / `local_*` oraz szablon i import tłumaczeń JSON z `simplysmart/polygon`.
 - Strona startowa `/` z kartą instalacji simplysmart (funkcje systemu, „Zbudowane na Laravel”), stylami inline i wersją z najnowszego wydania w CHANGELOG.md.

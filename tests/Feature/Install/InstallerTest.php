@@ -32,7 +32,7 @@ use Simplysmart\Polygon\Zones\PolygonZone;
 use Tests\TestCase;
 
 /**
- * Pliki instalacji JSON (Install\*): domyślny plik paczki zakłada uprawnienia i role jak strefa administratorów admiro
+ * Pliki instalacji JSON (Install\*): domyślny plik paczki zakłada uprawnienia i role strefy administratorów
  * (support, owner) na katalogu ról każdej strefy (guest, support, owner, hero — root ze wszystkimi uprawnieniami, także
  * dodanymi przez projekt — oraz registration, doctor, accountant, analyst, manager) i konto support z losowym
  * id poniżej 1000; enumy BaseRole/PolygonPermission są zgodne z plikiem i mają etykiety pl/en; plik projektu (POLYGON_INSTALL_FILES) dokłada role i konta; błędny plik niczego nie zapisuje;
