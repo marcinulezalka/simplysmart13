@@ -76,6 +76,13 @@ class ZoneRegistrationTest extends ZoneTestCase
         $this->registerZone($this->zone(['name' => 'copy', 'slug' => 'alpha'], 'copy', 'open'));
     }
 
+    public function test_a_zone_home_must_implement_the_zone_home_contract(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        $this->registerZone($this->zone(['name' => 'homeless', 'model' => AlphaAccount::class, 'home' => AlphaAccount::class], 'homeless', 'open'));
+    }
+
     public function test_a_zone_slug_cannot_be_a_locale_code(): void
     {
         config(['polygon.locale.enabled' => ['pl', 'en']]);

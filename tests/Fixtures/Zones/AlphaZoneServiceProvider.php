@@ -14,7 +14,7 @@ declare(strict_types=1);
 namespace Tests\Fixtures\Zones;
 
 /**
- * Strefa testowa alpha z logowaniem i zaufanymi urządzeniami.
+ * Strefa testowa alpha z logowaniem, zaufanymi urządzeniami i stroną startową konta (AlphaZoneHome).
  */
 class AlphaZoneServiceProvider extends FixtureZoneServiceProvider
 {
@@ -25,6 +25,6 @@ class AlphaZoneServiceProvider extends FixtureZoneServiceProvider
 
     protected function zoneConfig(): array
     {
-        return $this->signInZone(AlphaAccount::class);
+        return $this->signInZone(AlphaAccount::class, ['home' => AlphaZoneHome::class]);
     }
 }

@@ -19,11 +19,16 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use Simplysmart\Polygon\Auth\SignIn\IssueSignInCode;
 use Simplysmart\Polygon\Mail\LoginCodeMail;
+use Simplysmart\Polygon\Models\Permissions\Permission;
+use Simplysmart\Polygon\Organizations\OrganizationMembership;
+use Simplysmart\Polygon\Permissions\OrganizationRoles;
 use Tests\Fixtures\Zones\AlphaAccount;
+use Tests\Fixtures\Zones\AlphaZoneHome;
 
 /**
  * Przepływ logowania: e-mail → kod → PIN (albo ustawienie PIN-u), decoy dla nieznanych
- * i nieaktywnych kont, tylko najnowszy kod, brak przeskakiwania kroków i czas kroków.
+ * i nieaktywnych kont, tylko najnowszy kod, brak przeskakiwania kroków, czas kroków i strona startowa konta wybrana przez
+ * strefę (Contracts\ZoneHome, uprawnienia w bieżącej organizacji).
  */
 class SignInFlowTest extends SignInTestCase
 {
@@ -71,6 +76,40 @@ class SignInFlowTest extends SignInTestCase
         $this->post('/alpha/signin/pin-setup', ['pin' => self::PIN, 'pin_confirmation' => self::PIN])->assertRedirect('/alpha/dashboard');
 
         $this->assertNull(session('url.intended'));
+    }
+
+    public function test_sign_in_goes_to_the_home_the_zone_chooses_for_the_account(): void
+    {
+        $account = $this->account(AlphaAccount::class, pin: self::PIN);
+        $organization = $this->organization('Północ');
+        $this->role('manager', 'alpha')->givePermissionTo($this->permission(AlphaZoneHome::PERMISSION));
+        $this->app->make(OrganizationMembership::class)->add($account, $organization);
+        $this->app->make(OrganizationRoles::class)->assign($account, ['manager'], $organization->id);
+
+        $this->requestCode();
+        $this->submitCode($this->sentCode());
+        $this->submitPin(self::PIN)->assertRedirect('/alpha/' . AlphaZoneHome::ROUTE);
+    }
+
+    public function test_first_sign_in_goes_to_the_home_the_zone_chooses_for_the_account(): void
+    {
+        $account = $this->account(AlphaAccount::class);
+        $this->role('manager', 'alpha')->givePermissionTo($this->permission(AlphaZoneHome::PERMISSION));
+        $account->assignRole('manager');
+
+        $this->get('/alpha/page')->assertRedirect('/alpha/signin');
+        $this->requestCode();
+        $this->submitCode($this->sentCode());
+        $this->post('/alpha/signin/pin-setup', ['pin' => self::PIN, 'pin_confirmation' => self::PIN])->assertRedirect('/alpha/' . AlphaZoneHome::ROUTE);
+    }
+
+    public function test_a_home_route_that_does_not_exist_falls_back_to_the_dashboard(): void
+    {
+        $this->account(AlphaAccount::class, ['email' => AlphaZoneHome::MISSING_ROUTE_EMAIL], self::PIN);
+
+        $this->requestCode(AlphaZoneHome::MISSING_ROUTE_EMAIL);
+        $this->submitCode($this->sentCode(AlphaZoneHome::MISSING_ROUTE_EMAIL));
+        $this->submitPin(self::PIN)->assertRedirect('/alpha/dashboard');
     }
 
     public function test_weak_pin_is_rejected(): void
@@ -236,5 +275,13 @@ class SignInFlowTest extends SignInTestCase
         $this->assertSame(64, strlen($row->email_hash));
         $this->requestCode();
         $this->assertNotSame('', $this->sentCode());
+    }
+
+    private function permission(string $name): Permission
+    {
+        $permission = new Permission();
+        $permission->forceFill(['name' => $name, 'guard_name' => 'alpha'])->save();
+
+        return $permission;
     }
 }
