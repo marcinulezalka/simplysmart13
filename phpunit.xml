@@ -12,7 +12,7 @@
             <directory>tests/Feature</directory>
         </testsuite>
         <testsuite name="Packages">
-            <directory>../packages/simplysmart/*/tests/Integration</directory>
+            <directory>vendor/simplysmart/*/tests/Integration</directory>
         </testsuite>
     </testsuites>
     <source>

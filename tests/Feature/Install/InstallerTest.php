@@ -16,7 +16,7 @@ namespace Tests\Feature\Install;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Simplysmart\Polygon\Database\IdSlots;
 use Simplysmart\Polygon\Database\Seeders\OrganizationsSeeder;
-use Simplysmart\Polygon\Install\Installer as PolygonInstaller;
+use Simplysmart\Polygon\Install\OrganizationInstaller;
 use Simplysmart\Polygon\Models\Organization;
 use Simplysmart\Polygon\Models\OrganizationMember;
 use Simplysmart\Polygon\Install\InstallFileParser;
@@ -243,7 +243,7 @@ class InstallerTest extends TestCase
         config(['polygon.install.files' => [$this->file($this->organizationFile())]]);
         $this->command('polygon:install')->expectsOutput('Organizacja już istnieje: Zmieniona w aplikacji (bez zmian).')->assertSuccessful();
 
-        $this->assertSame(2, Organization::query()->where('json_attributes->' . PolygonInstaller::INSTALL_KEY, '!=', '')->count());
+        $this->assertSame(2, Organization::query()->where('json_attributes->' . OrganizationInstaller::INSTALL_KEY, '!=', '')->count());
         $this->assertSame('Zmieniona w aplikacji', $this->installed('clinic')->name);
         $this->assertSame($members + 1, OrganizationMember::query()->count(), 'Istniejące konto dostaje członkostwo z pliku.');
         $this->assertSame(['anna@example.com', 'jan@example.com'], $this->staff($this->installed('clinic')));
@@ -327,7 +327,7 @@ class InstallerTest extends TestCase
 
     private function installed(string $key): Organization
     {
-        return Organization::query()->where('json_attributes->' . PolygonInstaller::INSTALL_KEY, $key)->sole();
+        return Organization::query()->where('json_attributes->' . OrganizationInstaller::INSTALL_KEY, $key)->sole();
     }
 
     /**

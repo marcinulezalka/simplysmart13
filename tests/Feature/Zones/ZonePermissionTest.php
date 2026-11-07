@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Zones;
 
 use Simplysmart\Polygon\Database\Seeders\HeroOrganizationSeeder;
+use LogicException;
 use Simplysmart\Polygon\Models\Organization;
 use Simplysmart\Polygon\Models\Permissions\Permission;
 use Simplysmart\Polygon\Organizations\OrganizationMembership;
@@ -96,6 +97,22 @@ class ZonePermissionTest extends ZoneTestCase
 
         $this->post('/alpha/account/organization', ['organization' => $clinic->token])->assertRedirect(route('alpha.dashboard'));
         $this->get('/alpha/reports')->assertOk();
+    }
+
+    public function test_roles_in_an_unsaved_organization_are_refused_instead_of_becoming_global(): void
+    {
+        $account = $this->account(AlphaAccount::class);
+        $this->role('owner', 'alpha');
+        $roles = $this->app->make(OrganizationRoles::class);
+        $unsaved = new Organization();
+        $unsaved->name = 'Bez zapisu';
+
+        try {
+            $roles->assignIn($account, ['owner'], $unsaved);
+            $this->fail('Role w niezapisanej organizacji muszą być odrzucone.');
+        } catch (LogicException) {
+            $this->assertSame([], $roles->names($account, null), 'Role nie trafiają do ról globalnych.');
+        }
     }
 
     private function permission(string $name, string $guard): Permission

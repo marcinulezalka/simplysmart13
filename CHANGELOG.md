@@ -10,6 +10,10 @@ Format oparty na [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/).
 - Wdrożenie przesyła opcjonalny plik instalacji projektu `infrastructure/deploy/vendors/<projekt>.json` do przed-produkcji i na serwer, a po migracjach uruchamia typy jednostek (`polygon:organizations:seed`) i pliki instalacji (`polygon:install`).
 - Role kont stref per organizacja (`simplysmart/polygon`): konto może mieć w każdej organizacji inne role (np. właściciel w jednej, lekarz w drugiej), a uprawnienia liczą się w bieżącej organizacji z przełącznika; w plikach instalacji `accounts[].organizations` jako `{"<organizacja>": ["<rola>"]}`. Hero i konta bez organizacji mają role globalne.
 
+### Changed
+
+- Zestaw testów `Packages` uruchamia testy integracyjne tylko paczek zainstalowanych w projekcie (`vendor/simplysmart/*/tests/Integration`) zamiast wszystkich paczek z `../packages/simplysmart/`.
+
 ## [13.0.0] - 2026-11-06
 
 Pierwsze wydanie simplysmart-13 (numer wersji głównej zgodny z Laravel 13).
