@@ -13,6 +13,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Zones;
 
+use Illuminate\Session\ArraySessionHandler;
+use Illuminate\Session\Store;
 use Simplysmart\Polygon\Database\ZoneTables;
 use Simplysmart\Polygon\Zones\ZoneUrlKey;
 use Tests\Fixtures\Zones\GammaAccount;
@@ -21,7 +23,8 @@ use Tests\Fixtures\Zones\GammaZoneServiceProvider;
 /**
  * Hash sesji w adresie (`url_key` strefy, Zones\ZoneUrlKey): trasy po zalogowaniu są pod `/<slug>/<hash>/…`, route()
  * dokłada hash bieżącej sesji, a kontroler nie dostaje go w parametrach; brak, zły albo cudzy hash to 404 także dla
- * zalogowanego; logowanie i trasy publiczne zostają pod `/<slug>/…`.
+ * zalogowanego; logowanie i trasy publiczne zostają pod `/<slug>/…`. rewrite() podmienia hash z poprzedniej sesji
+ * (zamierzona strona sprzed zalogowania) na bieżący, tylko na początku ścieżki strefy.
  */
 class ZoneUrlKeyTest extends ZoneTestCase
 {
@@ -55,5 +58,20 @@ class ZoneUrlKeyTest extends ZoneTestCase
 
         $this->assertNotSame($first, '');
         $this->assertMatchesRegularExpression('#/gamma/[a-z0-9]{' . ZoneUrlKey::LENGTH . '}/items/x$#', $second);
+    }
+
+    public function test_rewrite_puts_the_current_hash_after_the_zone_slug(): void
+    {
+        $keys = new ZoneUrlKey();
+        $session = new Store('test', new ArraySessionHandler(1));
+        $current = $keys->current($session);
+        $old = str_repeat('b', ZoneUrlKey::LENGTH);
+
+        $this->assertSame('https://example.test/edm/' . $current . '/registration/dashboard?week=2026-11-09', $keys->rewrite('https://example.test/edm/' . $old . '/registration/dashboard?week=2026-11-09', 'edm', $session));
+        $this->assertSame('/edm/' . $current, $keys->rewrite('/edm/' . $old, 'edm', $session));
+        $this->assertSame('/' . $current . '/items?x=1', $keys->rewrite('/' . $old . '/items?x=1', '', $session));
+        $this->assertSame('https://example.test/edm/signin', $keys->rewrite('https://example.test/edm/signin', 'edm', $session));
+        $this->assertSame('https://example.test/other/' . $old . '/items', $keys->rewrite('https://example.test/other/' . $old . '/items', 'edm', $session));
+        $this->assertSame('https://example.test/edm/' . $old . 'x/items', $keys->rewrite('https://example.test/edm/' . $old . 'x/items', 'edm', $session));
     }
 }
