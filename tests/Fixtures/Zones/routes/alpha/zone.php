@@ -17,6 +17,7 @@ use Simplysmart\Polygon\Organizations\OrganizationContext;
 use Simplysmart\Polygon\Zones\ZonePermission;
 
 Route::get('reports', fn(): string => 'reports')->middleware(ZonePermission::middleware('reports.view'))->name('reports');
+Route::get('desk', fn(): string => 'desk')->middleware(ZonePermission::middleware('desk.manage', 'desk.admit'))->name('desk');
 Route::get('organization', fn(CurrentOrganization $organization): array => [
     'id' => $organization->id(),
     'visible' => $organization->visible()?->name,

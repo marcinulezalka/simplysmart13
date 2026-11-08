@@ -24,7 +24,7 @@ use Tests\Fixtures\Zones\BetaAccount;
 
 /**
  * Trasa z uprawnieniem strefy (`ZonePermission::middleware()`): konto strefy z uprawnieniem w jej guardzie (przez rolę)
- * wchodzi, bez niego dostaje 403, a uprawnienie tej samej nazwy w guardzie innej strefy nie liczy się. Rola nadana
+ * wchodzi (przy kilku uprawnieniach trasy wystarczy dowolne), bez niego dostaje 403, a uprawnienie tej samej nazwy w guardzie innej strefy nie liczy się. Rola nadana
  * w organizacji działa tylko w jej kontekście (zespół spatie = bieżąca organizacja), a hero pracuje na rolach globalnych
  * w każdej organizacji.
  */
@@ -37,6 +37,18 @@ class ZonePermissionTest extends ZoneTestCase
         $account->assignRole('manager');
 
         $this->signedIn($account, 'alpha')->get('/alpha/reports')->assertOk()->assertSee('reports');
+    }
+
+    public function test_a_route_with_several_permissions_opens_with_any_of_them(): void
+    {
+        $this->permission('desk.manage', 'alpha');
+        $account = $this->account(AlphaAccount::class);
+        $this->role('doctor', 'alpha')->givePermissionTo($this->permission('desk.admit', 'alpha'));
+
+        $this->signedIn($account, 'alpha')->get('/alpha/desk')->assertForbidden();
+
+        $account->assignRole('doctor');
+        $this->get('/alpha/desk')->assertOk()->assertSee('desk');
     }
 
     public function test_account_without_the_permission_gets_403(): void

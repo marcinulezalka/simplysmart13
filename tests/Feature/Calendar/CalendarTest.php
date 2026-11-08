@@ -168,6 +168,23 @@ class CalendarTest extends ZoneTestCase
         $change->change($booking, BookingStatus::Confirmed, $this->doctor);
     }
 
+    public function test_a_completed_booking_keeps_its_slot_and_is_final(): void
+    {
+        $this->save($this->input());
+        $booking = $this->book('08:15');
+        $change = $this->app->make(BookingStatusChange::class);
+
+        $change->change($booking, BookingStatus::Confirmed, $this->doctor);
+        $change->change($booking, BookingStatus::Completed, $this->doctor);
+        $this->assertSame(BookingStatus::Completed, $booking->refresh()->status);
+        $this->assertNotContains('08:15', $this->times(self::MONDAY), 'Wykonana wizyta dalej zajmuje termin.');
+        $this->assertTrue(BookingStatus::Booked->allows(BookingStatus::Completed));
+        $this->assertSame('wykonana', BookingStatus::Completed->label());
+
+        $this->expectException(DomainException::class);
+        $change->change($booking, BookingStatus::Cancelled, $this->doctor);
+    }
+
     public function test_a_schedule_with_future_bookings_cannot_be_deleted(): void
     {
         $schedule = $this->save($this->input());
