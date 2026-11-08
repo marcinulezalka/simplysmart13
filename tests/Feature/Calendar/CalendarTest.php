@@ -158,7 +158,7 @@ class CalendarTest extends ZoneTestCase
         $change = $this->app->make(BookingStatusChange::class);
 
         $change->change($booking, BookingStatus::Confirmed, $this->doctor);
-        $this->assertSame([BookingStatus::Confirmed, $this->doctor->id], [$booking->refresh()->status, $booking->confirmed_by_id]);
+        $this->assertSame([BookingStatus::Confirmed, $this->doctor->id, self::MONDAY . ' 07:00'], [$booking->refresh()->status, $booking->confirmed_by_id, $booking->confirmed_at?->format('Y-m-d H:i')]);
         $this->assertSame([$booking->id], $this->app->make(DayBookings::class)->of([$this->clinic->id], CarbonImmutable::parse(self::MONDAY), self::KIND)->modelKeys());
         $this->assertSame([], $this->app->make(DayBookings::class)->of([$this->clinic->id], CarbonImmutable::parse(self::MONDAY), 'other.kind')->all());
         $change->change($booking, BookingStatus::Cancelled, $this->doctor);
