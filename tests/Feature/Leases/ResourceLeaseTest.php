@@ -271,6 +271,8 @@ class ResourceLeaseTest extends ZoneTestCase
         $this->assertSame([[2, '08:00', '12:00'], [2, '18:00', '22:00'], [4, '08:00', '12:00']], $lease->leaseWindows()->windows);
         $this->assertSame([LeaseAccess::Book], $lease->accessLevels());
         $this->assertTrue($lease->cooperation?->isCooperation());
+        $this->assertSame('2026-11-01', $lease->signed_on?->toDateString(), 'Data zawarcia z pola `signed` — niezależna od rozpoczęcia cyklu.');
+        $this->assertSame(self::MONDAY, $lease->valid_from->toDateString());
         $this->assertSame(2, ResourceSchedule::query()->where('organization_id', $lease->cooperation_organization_id)->count());
     }
 
@@ -299,7 +301,7 @@ class ResourceLeaseTest extends ZoneTestCase
         return [
             'organizations' => [
                 'owner' => ['name' => 'Właściciel', 'resources' => [['key' => 'gabinet-3', 'name' => 'Gabinet 3', 'code' => 'G3']], 'leases' => [[
-                    'resource' => 'gabinet-3', 'lessee' => 'lessee', 'cooperation' => 'lessee-coop', 'number' => 'UN/7', 'from' => self::MONDAY, 'to' => '2027-12-31',
+                    'resource' => 'gabinet-3', 'lessee' => 'lessee', 'cooperation' => 'lessee-coop', 'number' => 'UN/7', 'signed' => '2026-11-01', 'from' => self::MONDAY, 'to' => '2027-12-31',
                     'windows' => [['days' => [2], 'from' => '08:00', 'to' => '12:00'], ['days' => [2], 'from' => '18:00', 'to' => '22:00'], ['days' => [4], 'from' => '08:00', 'to' => '12:00']],
                     'access' => ['book'],
                 ]]],
