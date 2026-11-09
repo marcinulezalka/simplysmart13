@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Simplysmart\Polygon\Calendar\BookingStatusChange;
 use Simplysmart\Polygon\Calendar\BookSlot;
+use Simplysmart\Polygon\Calendar\RoomTaken;
 use Simplysmart\Polygon\Calendar\DayBookings;
 use Simplysmart\Polygon\Calendar\FreeSlots;
 use Simplysmart\Polygon\Calendar\SaveSchedule;
@@ -33,6 +34,7 @@ use Simplysmart\Polygon\Database\Seeders\CurrenciesSeeder;
 use Simplysmart\Polygon\Database\Seeders\HolidaysSeeder;
 use Simplysmart\Polygon\Database\Seeders\OrganizationsSeeder;
 use Simplysmart\Polygon\Enums\BookingStatus;
+use Simplysmart\Polygon\Enums\RoomTakenBy;
 use Simplysmart\Polygon\Enums\ResourceKind;
 use Simplysmart\Polygon\Models\Organization;
 use Simplysmart\Polygon\Models\OrganizationResource;
@@ -149,6 +151,52 @@ class CalendarTest extends ZoneTestCase
         $this->book('08:30');
         $this->expectException(SlotUnavailable::class);
         $this->book('08:30');
+    }
+
+    public function test_an_overflow_booking_goes_to_the_end_of_the_block_without_taking_a_slot(): void
+    {
+        $this->save($this->input());
+        $this->save($this->input(startsAt: '09:00', endsAt: '10:00'));
+        $book = $this->app->make(BookSlot::class);
+        $first = $book->bookOverflow($this->clinic, $this->doctor, CarbonImmutable::parse(self::MONDAY . ' 09:00'), self::KIND);
+        $second = $book->bookOverflow($this->clinic, $this->doctor, CarbonImmutable::parse(self::MONDAY . ' 09:00'), self::KIND);
+
+        $this->assertTrue($first->isOverflow());
+        $this->assertTrue($first->starts_at->equalTo($first->ends_at));
+        $this->assertSame(self::MONDAY . ' 09:00:00', $first->starts_at->format('Y-m-d H:i:s'));
+        $this->assertSame($this->room->id, $second->resource_id);
+        $this->assertFalse($this->book('08:15')->isOverflow());
+        $this->assertSame(['08:00', '08:30', '08:45', '09:00', '09:15', '09:30', '09:45'], $this->times(self::MONDAY), 'Nadliczbowe nie zajmują slotów, także pierwszego slotu następnego bloku.');
+
+        $this->expectException(SlotUnavailable::class);
+        $book->bookOverflow($this->clinic, $this->doctor, CarbonImmutable::parse(self::MONDAY . ' 08:30'), self::KIND);
+    }
+
+    public function test_the_room_after_a_block_is_taken_by_another_schedule_or_free(): void
+    {
+        $block = $this->save($this->input());
+        $slots = $this->app->make(FreeSlots::class);
+        $free = $slots->roomTakenAfter($this->clinic, $block, CarbonImmutable::parse(self::MONDAY));
+        $this->assertNull($free);
+
+        $other = $this->account(AlphaAccount::class, ['email' => 'drugi@example.com', 'name' => 'Drugi']);
+        $this->save($this->input($other, startsAt: '09:00', endsAt: '10:00'));
+        $taken = $slots->roomTakenAfter($this->clinic, $block, CarbonImmutable::parse(self::MONDAY . ' 00:00'));
+
+        $this->assertInstanceOf(RoomTaken::class, $taken);
+        $this->assertSame(RoomTakenBy::Schedule, $taken->by);
+        $this->assertSame('09:00', $taken->from->format('H:i'));
+        $this->assertTrue($other->is($taken->performer));
+        $this->assertNull($slots->roomTakenAfter($this->clinic, $block, CarbonImmutable::parse('2026-11-10')), 'Inny dzień tygodnia — gabinet wolny.');
+    }
+
+    public function test_an_overflow_booking_needs_a_block_ending_in_the_future(): void
+    {
+        $this->save($this->input());
+        CarbonImmutable::setTestNow(CarbonImmutable::parse(self::MONDAY . ' 09:30'));
+
+        $this->expectException(SlotUnavailable::class);
+        $this->app->make(BookSlot::class)->bookOverflow($this->clinic, $this->doctor, CarbonImmutable::parse(self::MONDAY . ' 09:00'), self::KIND);
     }
 
     public function test_status_changes_and_the_day_list(): void
