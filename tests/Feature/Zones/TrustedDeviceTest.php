@@ -41,8 +41,8 @@ class TrustedDeviceTest extends SignInTestCase
         $this->assertDatabaseCount('alpha_trusted_devices', 1);
         Mail::assertQueued(NewTrustedDeviceMail::class, fn(NewTrustedDeviceMail $mail): bool => $mail->hasTo(self::EMAIL));
 
-        $this->post('/alpha/signin/out');
-        $this->withCookie(self::COOKIE, $cookie)->requestCode()->assertRedirect('/alpha/signin/pin');
+        $this->post(route('alpha.auth.logout'));
+        $this->withCookie(self::COOKIE, $cookie)->requestCode()->assertRedirect(route('alpha.auth.pin'));
         Mail::assertSent(LoginCodeMail::class, 1);
 
         $this->submitPin(self::PIN)->assertRedirect('/alpha/dashboard');
@@ -54,7 +54,7 @@ class TrustedDeviceTest extends SignInTestCase
         $this->account(AlphaAccount::class, pin: self::PIN);
         $this->requestCode();
 
-        $this->get('/alpha/signin/code')->assertOk()
+        $this->get(route('alpha.auth.code'))->assertOk()
             ->assertViewHas('rememberDeviceDays', 30);
     }
 
@@ -76,7 +76,7 @@ class TrustedDeviceTest extends SignInTestCase
         [$selector, $validator] = explode('.', $cookie);
 
         $this->assertDatabaseMissing('alpha_trusted_devices', ['validator_hash' => $validator]);
-        $this->post('/alpha/signin/out');
+        $this->post(route('alpha.auth.logout'));
         $response = $this->withCookie(self::COOKIE, $cookie)->requestCode();
         $rotated = (string) $response->getCookie(self::COOKIE)?->getValue();
 
@@ -88,10 +88,10 @@ class TrustedDeviceTest extends SignInTestCase
     {
         $account = $this->account(AlphaAccount::class, pin: self::PIN);
         $cookie = $this->signInRemembering();
-        $this->post('/alpha/signin/out');
+        $this->post(route('alpha.auth.logout'));
         $this->withCookie(self::COOKIE, $cookie)->requestCode();
 
-        $this->withCookie(self::COOKIE, $cookie)->requestCode()->assertRedirect('/alpha/signin/code');
+        $this->withCookie(self::COOKIE, $cookie)->requestCode()->assertRedirect(route('alpha.auth.code'));
 
         $this->assertSame(0, DB::table('alpha_trusted_devices')->whereNull('revoked_at')->count());
         $this->assertSame(1, $account->fresh()?->authEpoch());
@@ -103,9 +103,9 @@ class TrustedDeviceTest extends SignInTestCase
         $this->account(AlphaAccount::class, pin: self::PIN);
         $this->account(AlphaAccount::class, ['email' => 'other@example.com'], self::PIN);
         $cookie = $this->signInRemembering();
-        $this->post('/alpha/signin/out');
+        $this->post(route('alpha.auth.logout'));
 
-        $this->withCookie(self::COOKIE, $cookie)->requestCode('other@example.com')->assertRedirect('/alpha/signin/code');
+        $this->withCookie(self::COOKIE, $cookie)->requestCode('other@example.com')->assertRedirect(route('alpha.auth.code'));
 
         $this->assertSame(1, DB::table('alpha_trusted_devices')->whereNull('revoked_at')->count());
     }
@@ -114,23 +114,23 @@ class TrustedDeviceTest extends SignInTestCase
     {
         $this->account(AlphaAccount::class, pin: self::PIN);
         $cookie = $this->signInRemembering();
-        $this->post('/alpha/signin/out');
+        $this->post(route('alpha.auth.logout'));
 
         $this->travel(31)->days();
 
-        $this->withCookie(self::COOKIE, $cookie)->requestCode()->assertRedirect('/alpha/signin/code');
+        $this->withCookie(self::COOKIE, $cookie)->requestCode()->assertRedirect(route('alpha.auth.code'));
     }
 
     public function test_another_browser_ends_the_trust(): void
     {
         $this->account(AlphaAccount::class, pin: self::PIN);
         $cookie = $this->withHeader('User-Agent', 'Mozilla/5.0 (X11; Linux x86_64) Firefox/131.0')->signInRemembering();
-        $this->post('/alpha/signin/out');
+        $this->post(route('alpha.auth.logout'));
 
         $this->withHeader('User-Agent', 'Mozilla/5.0 (Windows NT 10.0) Chrome/130.0 Safari/537.36')
             ->withCookie(self::COOKIE, $cookie)
             ->requestCode()
-            ->assertRedirect('/alpha/signin/code');
+            ->assertRedirect(route('alpha.auth.code'));
 
         $this->assertNotNull(DB::table('alpha_trusted_devices')->value('revoked_at'));
     }
@@ -139,10 +139,10 @@ class TrustedDeviceTest extends SignInTestCase
     {
         $this->account(AlphaAccount::class, pin: self::PIN);
         $cookie = $this->signInRemembering();
-        $this->post('/alpha/signin/out');
+        $this->post(route('alpha.auth.logout'));
 
         $this->withCookie(self::COOKIE, $cookie)->requestCode();
-        $this->post('/alpha/signin/code', ['code' => '000000', 'remember_device' => '1'])->assertRedirect('/alpha/signin');
+        $this->post(route('alpha.auth.code.store'), ['code' => '000000', 'remember_device' => '1'])->assertRedirect(route('alpha.auth.login'));
         $this->assertDatabaseCount('alpha_trusted_devices', 1);
     }
 
@@ -153,7 +153,7 @@ class TrustedDeviceTest extends SignInTestCase
         foreach (range(1, 11) as $sign) {
             $this->travel(7)->minutes();
             $this->signInRemembering();
-            $this->post('/alpha/signin/out');
+            $this->post(route('alpha.auth.logout'));
         }
 
         $this->assertSame(10, DB::table('alpha_trusted_devices')->whereNull('revoked_at')->count());
@@ -173,7 +173,7 @@ class TrustedDeviceTest extends SignInTestCase
     {
         $this->account(AlphaAccount::class, pin: self::PIN);
         $cookie = $this->signInRemembering();
-        $this->post('/alpha/signin/out');
+        $this->post(route('alpha.auth.logout'));
 
         $this->withCookie(self::COOKIE, $cookie)->requestCode();
 
@@ -189,7 +189,7 @@ class TrustedDeviceTest extends SignInTestCase
         $this->account(AlphaAccount::class, pin: self::PIN);
 
         $this->requestCode();
-        $this->post('/alpha/signin/code', ['code' => $this->sentCode(), 'remember_device' => '1']);
+        $this->post(route('alpha.auth.code.store'), ['code' => $this->sentCode(), 'remember_device' => '1']);
         $cookie = $this->submitPin(self::PIN)->getCookie(self::COOKIE, decrypt: false);
 
         $this->assertNotNull($cookie);
@@ -218,7 +218,7 @@ class TrustedDeviceTest extends SignInTestCase
         $this->account(AlphaAccount::class, pin: self::PIN);
         $this->signInRemembering();
         $token = $this->deviceToken();
-        $this->post('/alpha/signin/out');
+        $this->post(route('alpha.auth.logout'));
 
         $other = $this->account(AlphaAccount::class, ['email' => 'other@example.com'], self::PIN);
         $this->signedIn($other, 'alpha')->delete('/alpha/account/devices/' . $token)->assertNotFound();
@@ -230,7 +230,7 @@ class TrustedDeviceTest extends SignInTestCase
     {
         $this->account(AlphaAccount::class, pin: self::PIN);
         $this->signInRemembering();
-        $this->post('/alpha/signin/out');
+        $this->post(route('alpha.auth.logout'));
         $this->signInRemembering();
 
         $this->delete('/alpha/account/devices')->assertRedirect('/alpha/account/security#devices');
@@ -279,7 +279,7 @@ class TrustedDeviceTest extends SignInTestCase
     private function signInRemembering(): string
     {
         $this->requestCode();
-        $this->post('/alpha/signin/code', ['code' => $this->sentCode(), 'remember_device' => '1'])->assertRedirect('/alpha/signin/pin');
+        $this->post(route('alpha.auth.code.store'), ['code' => $this->sentCode(), 'remember_device' => '1'])->assertRedirect(route('alpha.auth.pin'));
         $response = $this->submitPin(self::PIN)->assertRedirect('/alpha/dashboard');
 
         return (string) $response->getCookie(self::COOKIE)?->getValue();

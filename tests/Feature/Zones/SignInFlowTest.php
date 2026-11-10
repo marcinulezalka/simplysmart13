@@ -19,7 +19,6 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use Simplysmart\Polygon\Auth\SignIn\IssueSignInCode;
 use Simplysmart\Polygon\Mail\LoginCodeMail;
-use Simplysmart\Polygon\Models\Permissions\Permission;
 use Simplysmart\Polygon\Organizations\OrganizationMembership;
 use Simplysmart\Polygon\Permissions\OrganizationRoles;
 use Tests\Fixtures\Zones\AlphaAccount;
@@ -36,8 +35,8 @@ class SignInFlowTest extends SignInTestCase
     {
         $account = $this->account(AlphaAccount::class, pin: self::PIN);
 
-        $this->requestCode()->assertRedirect('/alpha/signin/code');
-        $this->submitCode($this->sentCode())->assertRedirect('/alpha/signin/pin');
+        $this->requestCode()->assertRedirect(route('alpha.auth.code'));
+        $this->submitCode($this->sentCode())->assertRedirect(route('alpha.auth.pin'));
         $this->submitPin(self::PIN)->assertRedirect('/alpha/dashboard');
 
         $this->assertAuthenticatedAs($account, 'alpha');
@@ -49,8 +48,8 @@ class SignInFlowTest extends SignInTestCase
         $account = $this->account(AlphaAccount::class);
 
         $this->requestCode();
-        $this->submitCode($this->sentCode())->assertRedirect('/alpha/signin/pin-setup');
-        $this->post('/alpha/signin/pin-setup', ['pin' => self::PIN, 'pin_confirmation' => self::PIN])->assertRedirect('/alpha/dashboard');
+        $this->submitCode($this->sentCode())->assertRedirect(route('alpha.auth.pin-setup'));
+        $this->post(route('alpha.auth.pin-setup.store'), ['pin' => self::PIN, 'pin_confirmation' => self::PIN])->assertRedirect('/alpha/dashboard');
 
         $this->assertAuthenticatedAs($account, 'alpha');
         $this->assertTrue($account->fresh()?->hasPin());
@@ -60,7 +59,7 @@ class SignInFlowTest extends SignInTestCase
     {
         $this->account(AlphaAccount::class, pin: self::PIN);
 
-        $this->get('/alpha/page')->assertRedirect('/alpha/signin');
+        $this->get('/alpha/page')->assertRedirect(route('alpha.auth.login'));
         $this->requestCode();
         $this->submitCode($this->sentCode());
         $this->submitPin(self::PIN)->assertRedirect('/alpha/page');
@@ -70,10 +69,10 @@ class SignInFlowTest extends SignInTestCase
     {
         $this->account(AlphaAccount::class);
 
-        $this->get('/alpha/page')->assertRedirect('/alpha/signin');
+        $this->get('/alpha/page')->assertRedirect(route('alpha.auth.login'));
         $this->requestCode();
         $this->submitCode($this->sentCode());
-        $this->post('/alpha/signin/pin-setup', ['pin' => self::PIN, 'pin_confirmation' => self::PIN])->assertRedirect('/alpha/dashboard');
+        $this->post(route('alpha.auth.pin-setup.store'), ['pin' => self::PIN, 'pin_confirmation' => self::PIN])->assertRedirect('/alpha/dashboard');
 
         $this->assertNull(session('url.intended'));
     }
@@ -82,7 +81,7 @@ class SignInFlowTest extends SignInTestCase
     {
         $account = $this->account(AlphaAccount::class, pin: self::PIN);
         $organization = $this->organization('Północ');
-        $this->role('manager', 'alpha')->givePermissionTo($this->permission(AlphaZoneHome::PERMISSION));
+        $this->role('manager', 'alpha')->givePermissionTo($this->permission(AlphaZoneHome::PERMISSION, 'alpha'));
         $this->app->make(OrganizationMembership::class)->add($account, $organization);
         $this->app->make(OrganizationRoles::class)->assign($account, ['manager'], $organization->id);
 
@@ -94,13 +93,13 @@ class SignInFlowTest extends SignInTestCase
     public function test_first_sign_in_goes_to_the_home_the_zone_chooses_for_the_account(): void
     {
         $account = $this->account(AlphaAccount::class);
-        $this->role('manager', 'alpha')->givePermissionTo($this->permission(AlphaZoneHome::PERMISSION));
+        $this->role('manager', 'alpha')->givePermissionTo($this->permission(AlphaZoneHome::PERMISSION, 'alpha'));
         $account->assignRole('manager');
 
-        $this->get('/alpha/page')->assertRedirect('/alpha/signin');
+        $this->get('/alpha/page')->assertRedirect(route('alpha.auth.login'));
         $this->requestCode();
         $this->submitCode($this->sentCode());
-        $this->post('/alpha/signin/pin-setup', ['pin' => self::PIN, 'pin_confirmation' => self::PIN])->assertRedirect('/alpha/' . AlphaZoneHome::ROUTE);
+        $this->post(route('alpha.auth.pin-setup.store'), ['pin' => self::PIN, 'pin_confirmation' => self::PIN])->assertRedirect('/alpha/' . AlphaZoneHome::ROUTE);
     }
 
     public function test_a_home_route_that_does_not_exist_falls_back_to_the_dashboard(): void
@@ -118,14 +117,14 @@ class SignInFlowTest extends SignInTestCase
 
         $this->requestCode();
         $this->submitCode($this->sentCode());
-        $this->post('/alpha/signin/pin-setup', ['pin' => '123456', 'pin_confirmation' => '123456'])->assertSessionHasErrors('pin');
+        $this->post(route('alpha.auth.pin-setup.store'), ['pin' => '123456', 'pin_confirmation' => '123456'])->assertSessionHasErrors('pin');
 
         $this->assertGuest('alpha');
     }
 
     public function test_unknown_address_gets_the_same_answer_and_no_mail(): void
     {
-        $this->requestCode('nobody@example.com')->assertRedirect('/alpha/signin/code');
+        $this->requestCode('nobody@example.com')->assertRedirect(route('alpha.auth.code'));
         $this->submitCode('123456')->assertSessionHasErrors(['code' => text('sign_in.failure')]);
 
         Mail::assertNothingSent();
@@ -135,7 +134,7 @@ class SignInFlowTest extends SignInTestCase
     {
         $this->account(AlphaAccount::class, ['is_active' => false], self::PIN);
 
-        $this->requestCode()->assertRedirect('/alpha/signin/code');
+        $this->requestCode()->assertRedirect(route('alpha.auth.code'));
 
         Mail::assertNothingSent();
     }
@@ -160,7 +159,7 @@ class SignInFlowTest extends SignInTestCase
         $first = $this->sentCode();
 
         $this->travel(61)->seconds();
-        $this->post('/alpha/signin/code/resend')->assertRedirect('/alpha/signin/code');
+        $this->post(route('alpha.auth.code.resend'))->assertRedirect(route('alpha.auth.code'));
 
         $second = null;
         Mail::assertSent(LoginCodeMail::class, function (LoginCodeMail $mail) use (&$second): bool {
@@ -173,7 +172,7 @@ class SignInFlowTest extends SignInTestCase
             $this->submitCode($first)->assertSessionHasErrors('code');
         }
 
-        $this->submitCode((string) $second)->assertRedirect('/alpha/signin/pin');
+        $this->submitCode((string) $second)->assertRedirect(route('alpha.auth.pin'));
     }
 
     public function test_double_submit_of_the_address_sends_one_code(): void
@@ -203,10 +202,10 @@ class SignInFlowTest extends SignInTestCase
     {
         $this->account(AlphaAccount::class, pin: self::PIN);
 
-        $this->get('/alpha/signin/pin')->assertRedirect('/alpha/signin');
+        $this->get(route('alpha.auth.pin'))->assertRedirect(route('alpha.auth.login'));
 
         $this->requestCode();
-        $this->get('/alpha/signin/pin')->assertRedirect('/alpha/signin')->assertSessionHasErrors(['email' => text('sign_in.expired')]);
+        $this->get(route('alpha.auth.pin'))->assertRedirect(route('alpha.auth.login'))->assertSessionHasErrors(['email' => text('sign_in.expired')]);
     }
 
     public function test_the_code_step_expires(): void
@@ -217,22 +216,22 @@ class SignInFlowTest extends SignInTestCase
         $code = $this->sentCode();
         $this->travel(11)->minutes();
 
-        $this->submitCode($code)->assertRedirect('/alpha/signin');
+        $this->submitCode($code)->assertRedirect(route('alpha.auth.login'));
         $this->assertGuest('alpha');
     }
 
     public function test_signed_in_account_skips_the_sign_in_pages(): void
     {
         $this->signedIn($this->account(AlphaAccount::class, pin: self::PIN), 'alpha')
-            ->get('/alpha/signin')
+            ->get(route('alpha.auth.login'))
             ->assertRedirect('/alpha/dashboard');
     }
 
     public function test_sign_out_ends_the_zone_session(): void
     {
         $this->signedIn($this->account(AlphaAccount::class, pin: self::PIN), 'alpha')
-            ->post('/alpha/signin/out')
-            ->assertRedirect('/alpha/signin');
+            ->post(route('alpha.auth.logout'))
+            ->assertRedirect(route('alpha.auth.login'));
 
         $this->assertGuest('alpha');
     }
@@ -240,8 +239,8 @@ class SignInFlowTest extends SignInTestCase
     public function test_sign_out_says_goodbye_on_the_sign_in_page(): void
     {
         $this->signedIn($this->account(AlphaAccount::class, pin: self::PIN), 'alpha')
-            ->post('/alpha/signin/out')
-            ->assertRedirect('/alpha/signin')
+            ->post(route('alpha.auth.logout'))
+            ->assertRedirect(route('alpha.auth.login'))
             ->assertSessionHas(StatusMessage::KEY, text('sign_in.signed_out'))
             ->assertCookie('alpha_session');
     }
@@ -249,7 +248,7 @@ class SignInFlowTest extends SignInTestCase
 
     public function test_forgot_pin_page_explains_the_reset_and_leads_back_to_sign_in(): void
     {
-        $this->get('/alpha/signin/forgot-pin')
+        $this->get(route('alpha.auth.forgot-pin'))
             ->assertOk()
             ->assertSee('data-screen="forgot_pin"', false)
             ->assertViewHas('codePending', false);
@@ -259,7 +258,7 @@ class SignInFlowTest extends SignInTestCase
     public function test_expired_form_sends_back_to_the_zone_sign_in(): void
     {
         $this->post('/alpha/expired-form')
-            ->assertRedirect('/alpha/signin')
+            ->assertRedirect(route('alpha.auth.login'))
             ->assertSessionHasErrors(['email' => text('sign_in.page_expired')]);
     }
 
@@ -275,13 +274,5 @@ class SignInFlowTest extends SignInTestCase
         $this->assertSame(64, strlen($row->email_hash));
         $this->requestCode();
         $this->assertNotSame('', $this->sentCode());
-    }
-
-    private function permission(string $name): Permission
-    {
-        $permission = new Permission();
-        $permission->forceFill(['name' => $name, 'guard_name' => 'alpha'])->save();
-
-        return $permission;
     }
 }

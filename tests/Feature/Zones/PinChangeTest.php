@@ -105,7 +105,7 @@ class PinChangeTest extends SignInTestCase
 
     public function test_guest_cannot_open_the_pin_change(): void
     {
-        $this->get('/alpha/account/pin')->assertRedirect('/alpha/signin');
+        $this->get('/alpha/account/pin')->assertRedirect(route('alpha.auth.login'));
     }
 
     /**

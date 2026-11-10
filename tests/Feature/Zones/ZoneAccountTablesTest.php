@@ -57,7 +57,7 @@ class ZoneAccountTablesTest extends ZoneTestCase
         $this->app->make(CurrentZone::class)->set($this->app->make(ZoneRegistry::class)->get('alpha'));
         $accounts = $this->app->make(AccountLocator::class);
 
-        $this->assertNull($accounts->findByEmail('anna@example.com'));
+        $this->assertNull($accounts->findByEmail(self::EMAIL));
         $this->assertTrue($accounts->isEmailTaken('Anna@Example.com'));
         $this->assertFalse($accounts->isEmailTaken('jan@example.com'));
     }

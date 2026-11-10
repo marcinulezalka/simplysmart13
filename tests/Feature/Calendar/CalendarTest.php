@@ -35,7 +35,6 @@ use Simplysmart\Polygon\Database\Seeders\HolidaysSeeder;
 use Simplysmart\Polygon\Database\Seeders\OrganizationsSeeder;
 use Simplysmart\Polygon\Enums\BookingStatus;
 use Simplysmart\Polygon\Enums\RoomTakenBy;
-use Simplysmart\Polygon\Enums\ResourceKind;
 use Simplysmart\Polygon\Models\Organization;
 use Simplysmart\Polygon\Models\OrganizationResource;
 use Simplysmart\Polygon\Models\ResourceBooking;
@@ -43,6 +42,7 @@ use Simplysmart\Polygon\Models\ResourceSchedule;
 use Simplysmart\Polygon\Models\ZoneAccount;
 use Simplysmart\Polygon\Queries\Organizations\OrganizationUnits;
 use Tests\Feature\Zones\ZoneTestCase;
+use Tests\Fixtures\Calendar\CalendarWeek;
 use Tests\Fixtures\Zones\AlphaAccount;
 
 /**
@@ -54,9 +54,6 @@ use Tests\Fixtures\Zones\AlphaAccount;
  */
 class CalendarTest extends ZoneTestCase
 {
-    /** Poniedziałek; grafik w poniedziałki 08:00–09:00, sloty po 15 minut. */
-    private const string MONDAY = '2026-11-09';
-
     private const string KIND = 'test.visit';
 
     private Organization $seat;
@@ -74,19 +71,13 @@ class CalendarTest extends ZoneTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        CarbonImmutable::setTestNow(CarbonImmutable::parse(self::MONDAY . ' 07:00'));
+        CarbonImmutable::setTestNow(CalendarWeek::at('07:00'));
         $this->seat = $this->organization('Siedziba');
         $this->clinic = $this->organization('Poradnia', ['parent_id' => $this->seat->id]);
         $this->sibling = $this->organization('Pracownia', ['parent_id' => $this->seat->id]);
-        $this->room = $this->resource($this->seat, 'Gabinet 1', 'G1');
-        $this->siblingRoom = $this->resource($this->sibling, 'Gabinet 2', 'G2');
+        $this->room = $this->organizationResource($this->seat, 'Gabinet 1', 'G1');
+        $this->siblingRoom = $this->organizationResource($this->sibling, 'Gabinet 2', 'G2');
         $this->doctor = $this->account(AlphaAccount::class, ['email' => 'lekarz@example.com', 'name' => 'Lekarz']);
-    }
-
-    protected function tearDown(): void
-    {
-        CarbonImmutable::setTestNow();
-        parent::tearDown();
     }
 
     public function test_calendar_tables_get_the_standard_with_history_and_user_ids(): void
@@ -108,7 +99,7 @@ class CalendarTest extends ZoneTestCase
     {
         $this->save($this->input());
         $other = $this->account(AlphaAccount::class, ['email' => 'drugi@example.com', 'name' => 'Drugi']);
-        $ownRoom = $this->resource($this->clinic, 'Gabinet 3', 'G3');
+        $ownRoom = $this->organizationResource($this->clinic, 'Gabinet 3', 'G3');
 
         $this->assertConflicts([ScheduleConflict::ResourceTaken], $this->input(performer: $other, startsAt: '08:45', endsAt: '10:00'));
         $this->assertConflicts([ScheduleConflict::PerformerBusy], $this->input(resourceId: $ownRoom->id, startsAt: '08:30'));
@@ -126,15 +117,33 @@ class CalendarTest extends ZoneTestCase
         $this->save($this->input());
         $this->save($this->input(weekday: 3));
         $slots = $this->app->make(FreeSlots::class);
-        CarbonImmutable::setTestNow(CarbonImmutable::parse(self::MONDAY . ' 08:20'));
+        CarbonImmutable::setTestNow(CalendarWeek::at('08:20'));
 
-        $this->assertSame(['08:30', '08:45'], $this->times(self::MONDAY));
+        $this->assertSame(['08:30', '08:45'], $this->times(CalendarWeek::MONDAY));
         $this->book('08:45');
-        $this->assertSame(['08:30'], $this->times(self::MONDAY));
+        $this->assertSame(['08:30'], $this->times(CalendarWeek::MONDAY));
         $this->assertSame([], $slots->on($this->clinic, $this->doctor, CarbonImmutable::parse('2026-11-11')), 'Święto Niepodległości to dzień wolny.');
         $this->assertCount(4, $slots->on($this->clinic, $this->doctor, CarbonImmutable::parse('2026-11-18')));
-        $this->assertSame([], $slots->on($this->sibling, $this->doctor, CarbonImmutable::parse(self::MONDAY)));
-        $this->assertSame([self::MONDAY, '2026-11-16', '2026-11-18'], array_map(static fn(CarbonImmutable $day): string => $day->toDateString(), $slots->days($this->clinic, $this->doctor, CarbonImmutable::parse(self::MONDAY), 10)));
+        $this->assertSame([], $slots->on($this->sibling, $this->doctor, CarbonImmutable::parse(CalendarWeek::MONDAY)));
+        $this->assertSame([CalendarWeek::MONDAY, '2026-11-16', '2026-11-18'], array_map(static fn(CarbonImmutable $day): string => $day->toDateString(), $slots->days($this->clinic, $this->doctor, CarbonImmutable::parse(CalendarWeek::MONDAY), 10)));
+    }
+
+    public function test_the_schedule_and_the_booking_name_their_performer(): void
+    {
+        $schedule = $this->save($this->input());
+        $booking = $this->book('08:15');
+        $foreign = (new ResourceBooking())->forceFill([
+            'name' => 'wykonawca spoza kont', 'status' => BookingStatus::Booked, 'organization_id' => $this->clinic->id, 'resource_id' => $this->siblingRoom->id,
+            'performer_type' => $this->clinic->getMorphClass(), 'performer_id' => $this->clinic->id, 'kind' => self::KIND,
+            'starts_at' => CalendarWeek::MONDAY . ' 10:00', 'ends_at' => CalendarWeek::MONDAY . ' 10:15',
+        ]);
+
+        $this->assertTrue($this->doctor->is($schedule->performerAccount()));
+        $this->assertSame('Lekarz', $schedule->performerName());
+        $this->assertTrue($this->doctor->is($booking->performerAccount()));
+        $this->assertSame('Lekarz', $booking->performerName());
+        $this->assertNull($foreign->performerAccount());
+        $this->assertSame('', $foreign->performerName());
     }
 
     public function test_a_resource_booked_by_another_performer_is_not_free_and_a_taken_slot_is_rejected(): void
@@ -144,10 +153,10 @@ class CalendarTest extends ZoneTestCase
         (new ResourceBooking())->forceFill([
             'name' => 'starsza rezerwacja', 'status' => BookingStatus::Booked, 'organization_id' => $this->sibling->id, 'resource_id' => $this->room->id,
             'performer_type' => $other->getMorphClass(), 'performer_id' => $other->id, 'kind' => self::KIND,
-            'starts_at' => self::MONDAY . ' 08:15', 'ends_at' => self::MONDAY . ' 08:30',
+            'starts_at' => CalendarWeek::MONDAY . ' 08:15', 'ends_at' => CalendarWeek::MONDAY . ' 08:30',
         ])->save();
 
-        $this->assertSame(['08:00', '08:30', '08:45'], $this->times(self::MONDAY));
+        $this->assertSame(['08:00', '08:30', '08:45'], $this->times(CalendarWeek::MONDAY));
         $this->book('08:30');
         $this->expectException(SlotUnavailable::class);
         $this->book('08:30');
@@ -158,30 +167,30 @@ class CalendarTest extends ZoneTestCase
         $this->save($this->input());
         $this->save($this->input(startsAt: '09:00', endsAt: '10:00'));
         $book = $this->app->make(BookSlot::class);
-        $first = $book->bookOverflow($this->clinic, $this->doctor, CarbonImmutable::parse(self::MONDAY . ' 09:00'), self::KIND);
-        $second = $book->bookOverflow($this->clinic, $this->doctor, CarbonImmutable::parse(self::MONDAY . ' 09:00'), self::KIND);
+        $first = $book->bookOverflow($this->clinic, $this->doctor, CalendarWeek::at('09:00'), self::KIND);
+        $second = $book->bookOverflow($this->clinic, $this->doctor, CalendarWeek::at('09:00'), self::KIND);
 
         $this->assertTrue($first->isOverflow());
         $this->assertTrue($first->starts_at->equalTo($first->ends_at));
-        $this->assertSame(self::MONDAY . ' 09:00:00', $first->starts_at->format('Y-m-d H:i:s'));
+        $this->assertSame(CalendarWeek::MONDAY . ' 09:00:00', $first->starts_at->format('Y-m-d H:i:s'));
         $this->assertSame($this->room->id, $second->resource_id);
         $this->assertFalse($this->book('08:15')->isOverflow());
-        $this->assertSame(['08:00', '08:30', '08:45', '09:00', '09:15', '09:30', '09:45'], $this->times(self::MONDAY), 'Nadliczbowe nie zajmują slotów, także pierwszego slotu następnego bloku.');
+        $this->assertSame(['08:00', '08:30', '08:45', '09:00', '09:15', '09:30', '09:45'], $this->times(CalendarWeek::MONDAY), 'Nadliczbowe nie zajmują slotów, także pierwszego slotu następnego bloku.');
 
         $this->expectException(SlotUnavailable::class);
-        $book->bookOverflow($this->clinic, $this->doctor, CarbonImmutable::parse(self::MONDAY . ' 08:30'), self::KIND);
+        $book->bookOverflow($this->clinic, $this->doctor, CalendarWeek::at('08:30'), self::KIND);
     }
 
     public function test_the_room_after_a_block_is_taken_by_another_schedule_or_free(): void
     {
         $block = $this->save($this->input());
         $slots = $this->app->make(FreeSlots::class);
-        $free = $slots->roomTakenAfter($this->clinic, $block, CarbonImmutable::parse(self::MONDAY));
+        $free = $slots->roomTakenAfter($this->clinic, $block, CarbonImmutable::parse(CalendarWeek::MONDAY));
         $this->assertNull($free);
 
         $other = $this->account(AlphaAccount::class, ['email' => 'drugi@example.com', 'name' => 'Drugi']);
         $this->save($this->input($other, startsAt: '09:00', endsAt: '10:00'));
-        $taken = $slots->roomTakenAfter($this->clinic, $block, CarbonImmutable::parse(self::MONDAY . ' 00:00'));
+        $taken = $slots->roomTakenAfter($this->clinic, $block, CalendarWeek::at('00:00'));
 
         $this->assertInstanceOf(RoomTaken::class, $taken);
         $this->assertSame(RoomTakenBy::Schedule, $taken->by);
@@ -193,10 +202,10 @@ class CalendarTest extends ZoneTestCase
     public function test_an_overflow_booking_needs_a_block_ending_in_the_future(): void
     {
         $this->save($this->input());
-        CarbonImmutable::setTestNow(CarbonImmutable::parse(self::MONDAY . ' 09:30'));
+        CarbonImmutable::setTestNow(CalendarWeek::at('09:30'));
 
         $this->expectException(SlotUnavailable::class);
-        $this->app->make(BookSlot::class)->bookOverflow($this->clinic, $this->doctor, CarbonImmutable::parse(self::MONDAY . ' 09:00'), self::KIND);
+        $this->app->make(BookSlot::class)->bookOverflow($this->clinic, $this->doctor, CalendarWeek::at('09:00'), self::KIND);
     }
 
     public function test_status_changes_and_the_day_list(): void
@@ -206,11 +215,11 @@ class CalendarTest extends ZoneTestCase
         $change = $this->app->make(BookingStatusChange::class);
 
         $change->change($booking, BookingStatus::Confirmed, $this->doctor);
-        $this->assertSame([BookingStatus::Confirmed, $this->doctor->id, self::MONDAY . ' 07:00'], [$booking->refresh()->status, $booking->confirmed_by_id, $booking->confirmed_at?->format('Y-m-d H:i')]);
-        $this->assertSame([$booking->id], $this->app->make(DayBookings::class)->of([$this->clinic->id], CarbonImmutable::parse(self::MONDAY), self::KIND)->modelKeys());
-        $this->assertSame([], $this->app->make(DayBookings::class)->of([$this->clinic->id], CarbonImmutable::parse(self::MONDAY), 'other.kind')->all());
+        $this->assertSame([BookingStatus::Confirmed, $this->doctor->id, CalendarWeek::MONDAY . ' 07:00'], [$booking->refresh()->status, $booking->confirmed_by_id, $booking->confirmed_at?->format('Y-m-d H:i')]);
+        $this->assertSame([$booking->id], $this->app->make(DayBookings::class)->of([$this->clinic->id], CarbonImmutable::parse(CalendarWeek::MONDAY), self::KIND)->modelKeys());
+        $this->assertSame([], $this->app->make(DayBookings::class)->of([$this->clinic->id], CarbonImmutable::parse(CalendarWeek::MONDAY), 'other.kind')->all());
         $change->change($booking, BookingStatus::Cancelled, $this->doctor);
-        $this->assertContains('08:15', $this->times(self::MONDAY), 'Odwołana rezerwacja zwalnia termin.');
+        $this->assertContains('08:15', $this->times(CalendarWeek::MONDAY), 'Odwołana rezerwacja zwalnia termin.');
 
         $this->expectException(DomainException::class);
         $change->change($booking, BookingStatus::Confirmed, $this->doctor);
@@ -225,7 +234,7 @@ class CalendarTest extends ZoneTestCase
         $change->change($booking, BookingStatus::Confirmed, $this->doctor);
         $change->change($booking, BookingStatus::Completed, $this->doctor);
         $this->assertSame(BookingStatus::Completed, $booking->refresh()->status);
-        $this->assertNotContains('08:15', $this->times(self::MONDAY), 'Wykonana wizyta dalej zajmuje termin.');
+        $this->assertNotContains('08:15', $this->times(CalendarWeek::MONDAY), 'Wykonana wizyta dalej zajmuje termin.');
         $this->assertTrue(BookingStatus::Booked->allows(BookingStatus::Completed));
         $this->assertSame('wykonana', BookingStatus::Completed->label());
 
@@ -253,7 +262,7 @@ class CalendarTest extends ZoneTestCase
     public function test_install_files_create_the_schedule_once(): void
     {
         $this->seed(OrganizationsSeeder::class);
-        config(['polygon.install.files' => [$this->file($this->scheduleFile())]]);
+        config(['polygon.install.files' => [$this->installFile($this->scheduleFile())]]);
 
         $this->command('polygon:install')->expectsOutputToContain('Grafik założony: Anna · Poradnia ·')->assertSuccessful();
         $this->command('polygon:install')->expectsOutputToContain('Grafik już istnieje: Anna · Poradnia ·')->assertSuccessful();
@@ -278,7 +287,7 @@ class CalendarTest extends ZoneTestCase
         ];
 
         foreach ($broken as $case => $schedule) {
-            config(['polygon.install.files' => [$this->file($this->scheduleFile($schedule))]]);
+            config(['polygon.install.files' => [$this->installFile($this->scheduleFile($schedule))]]);
 
             $this->command('polygon:install')->assertFailed();
 
@@ -320,7 +329,7 @@ class CalendarTest extends ZoneTestCase
         }
     }
 
-    private function input(?ZoneAccount $performer = null, ?int $resourceId = null, int $weekday = 1, string $startsAt = '08:00', string $endsAt = '09:00', string $validFrom = self::MONDAY, ?string $validTo = null): ScheduleInput
+    private function input(?ZoneAccount $performer = null, ?int $resourceId = null, int $weekday = 1, string $startsAt = '08:00', string $endsAt = '09:00', string $validFrom = CalendarWeek::MONDAY, ?string $validTo = null): ScheduleInput
     {
         return new ScheduleInput($this->clinic->id, $resourceId ?? $this->room->id, $performer ?? $this->doctor, $weekday, $startsAt, $endsAt, 15, CarbonImmutable::parse($validFrom), $validTo === null ? null : CarbonImmutable::parse($validTo));
     }
@@ -332,7 +341,7 @@ class CalendarTest extends ZoneTestCase
 
     private function book(string $time): ResourceBooking
     {
-        return $this->app->make(BookSlot::class)->book($this->clinic, $this->doctor, CarbonImmutable::parse(self::MONDAY . ' ' . $time), self::KIND);
+        return $this->app->make(BookSlot::class)->book($this->clinic, $this->doctor, CalendarWeek::at($time), self::KIND);
     }
 
     /**
@@ -341,25 +350,5 @@ class CalendarTest extends ZoneTestCase
     private function times(string $day): array
     {
         return array_map(static fn($slot): string => $slot->startsAt->format('H:i'), $this->app->make(FreeSlots::class)->on($this->clinic, $this->doctor, CarbonImmutable::parse($day)));
-    }
-
-    private function resource(Organization $organization, string $name, string $code): OrganizationResource
-    {
-        $resource = new OrganizationResource();
-        $resource->forceFill(['organization_id' => $organization->id, 'name' => $name, 'code' => $code, 'kind' => ResourceKind::Room, 'is_active' => true])->save();
-
-        return $resource;
-    }
-
-    /**
-     * @param array<string, mixed> $data
-     */
-    private function file(array $data): string
-    {
-        $path = tempnam(sys_get_temp_dir(), 'install');
-        $this->assertIsString($path);
-        file_put_contents($path, json_encode($data, JSON_THROW_ON_ERROR));
-
-        return $path;
     }
 }

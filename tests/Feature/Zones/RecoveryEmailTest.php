@@ -70,17 +70,17 @@ class RecoveryEmailTest extends SignInTestCase
         $account = $this->account(AlphaAccount::class, pin: self::PIN);
         $account->forceFill(['recovery_email' => self::RECOVERY])->save();
 
-        $this->post('/alpha/signin/forgot-pin/code', ['email' => self::EMAIL])
-            ->assertRedirect('/alpha/signin/forgot-pin')
+        $this->post(route('alpha.auth.forgot-pin.code'), ['email' => self::EMAIL])
+            ->assertRedirect(route('alpha.auth.forgot-pin'))
             ->assertSessionHas(StatusMessage::KEY, text('sign_in.forgot_pin.recovery.code_sent'));
-        $this->get('/alpha/signin/forgot-pin')
+        $this->get(route('alpha.auth.forgot-pin'))
             ->assertOk()
             ->assertViewHas('codePending', true);
         $code = $this->securityCode(self::RECOVERY);
         Mail::assertNotQueued(SecurityCodeMail::class, static fn(SecurityCodeMail $mail): bool => $mail->hasTo(self::EMAIL));
 
-        $this->post('/alpha/signin/forgot-pin', ['code' => $code])
-            ->assertRedirect('/alpha/signin')
+        $this->post(route('alpha.auth.forgot-pin.reset'), ['code' => $code])
+            ->assertRedirect(route('alpha.auth.login'))
             ->assertSessionHas(StatusMessage::KEY, text('sign_in.forgot_pin.recovery.done'));
 
         $fresh = $account->fresh();
@@ -94,16 +94,16 @@ class RecoveryEmailTest extends SignInTestCase
     {
         $account = $this->account(AlphaAccount::class, pin: self::PIN);
 
-        $this->post('/alpha/signin/forgot-pin/code', ['email' => self::EMAIL])->assertSessionHas(StatusMessage::KEY, text('sign_in.forgot_pin.recovery.code_sent'));
-        $this->post('/alpha/signin/forgot-pin/code', ['email' => 'nikt@example.com'])->assertSessionHas(StatusMessage::KEY, text('sign_in.forgot_pin.recovery.code_sent'));
+        $this->post(route('alpha.auth.forgot-pin.code'), ['email' => self::EMAIL])->assertSessionHas(StatusMessage::KEY, text('sign_in.forgot_pin.recovery.code_sent'));
+        $this->post(route('alpha.auth.forgot-pin.code'), ['email' => 'nikt@example.com'])->assertSessionHas(StatusMessage::KEY, text('sign_in.forgot_pin.recovery.code_sent'));
         Mail::assertNotQueued(SecurityCodeMail::class);
 
         $account->forceFill(['recovery_email' => self::RECOVERY])->save();
-        $this->post('/alpha/signin/forgot-pin/code', ['email' => self::EMAIL]);
+        $this->post(route('alpha.auth.forgot-pin.code'), ['email' => self::EMAIL]);
         $code = $this->securityCode(self::RECOVERY);
 
         $this->requestCode();
-        $this->post('/alpha/signin/code', ['code' => $code]);
+        $this->post(route('alpha.auth.code.store'), ['code' => $code]);
         $this->assertTrue($account->fresh()?->hasPin());
         $this->assertNotSame($code, $this->sentCode());
         Mail::assertSent(LoginCodeMail::class);

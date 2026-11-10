@@ -16,6 +16,7 @@ namespace Tests\Feature\Database;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
+use Simplysmart\Polygon\Database\ColumnNames;
 use Simplysmart\Polygon\Database\Columns;
 use Simplysmart\Polygon\Database\History;
 use Simplysmart\Polygon\Database\IdSlots;
@@ -50,7 +51,7 @@ abstract class DatabaseTestCase extends TestCase
     protected function item(array $attributes = []): DemoItem
     {
         $item = new DemoItem();
-        $item->forceFill(['name' => 'Pozycja', 'code' => 'A1', ...$attributes])->save();
+        $item->forceFill([ColumnNames::NAME => 'Pozycja', 'code' => 'A1', ...$attributes])->save();
 
         return $item;
     }

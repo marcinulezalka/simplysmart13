@@ -27,7 +27,6 @@ use Simplysmart\Polygon\Database\IdSlots;
 use Simplysmart\Polygon\Database\Seeders\OrganizationsSeeder;
 use Simplysmart\Polygon\Enums\LeaseAccess;
 use Simplysmart\Polygon\Enums\LeaseMode;
-use Simplysmart\Polygon\Enums\ResourceKind;
 use Simplysmart\Polygon\Leases\LeaseConflict;
 use Simplysmart\Polygon\Leases\LeaseInput;
 use Simplysmart\Polygon\Leases\LeaseRejected;
@@ -44,6 +43,7 @@ use Simplysmart\Polygon\Models\ZoneAccount;
 use Simplysmart\Polygon\Queries\Leases\ResourceLeases;
 use Simplysmart\Polygon\Queries\Organizations\OrganizationResources;
 use Tests\Feature\Zones\ZoneTestCase;
+use Tests\Fixtures\Calendar\CalendarWeek;
 use Tests\Fixtures\Zones\AlphaAccount;
 
 /**
@@ -55,11 +55,6 @@ use Tests\Fixtures\Zones\AlphaAccount;
  */
 class ResourceLeaseTest extends ZoneTestCase
 {
-    /** Poniedziałek; umowa we wtorki 08:00–12:00 i 18:00–22:00. */
-    private const string MONDAY = '2026-11-09';
-
-    private const string TUESDAY = '2026-11-10';
-
     private const string KIND = 'test.visit';
 
     private Organization $owner;
@@ -79,20 +74,14 @@ class ResourceLeaseTest extends ZoneTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        CarbonImmutable::setTestNow(CarbonImmutable::parse(self::MONDAY . ' 07:00'));
+        CarbonImmutable::setTestNow(CalendarWeek::at('07:00'));
         $this->owner = $this->organization('Właściciel');
         $this->clinic = $this->organization('Poradnia', ['parent_id' => $this->owner->id]);
         $this->lessee = $this->organization('Najemca');
         $this->cooperation = $this->organization('Najemca — kooperacja', ['parent_id' => $this->lessee->id, Organization::IS_COOPERATION => true]);
-        $this->room = $this->resource($this->owner, 'Gabinet 3', 'G3');
+        $this->room = $this->organizationResource($this->owner, 'Gabinet 3', 'G3');
         $this->doctor = $this->account(AlphaAccount::class, ['email' => 'lekarz@example.com', 'name' => 'Lekarz']);
         $this->guest = $this->account(AlphaAccount::class, ['email' => 'gosc@example.com', 'name' => 'Lekarz najemcy']);
-    }
-
-    protected function tearDown(): void
-    {
-        CarbonImmutable::setTestNow();
-        parent::tearDown();
     }
 
     public function test_the_lease_table_gets_the_standard_with_history_and_a_board_token(): void
@@ -129,7 +118,7 @@ class ResourceLeaseTest extends ZoneTestCase
     {
         $inTree = $this->organization('Dział kooperacji', ['parent_id' => $this->clinic->id, Organization::IS_COOPERATION => true]);
         $plain = $this->organization('Zwykła jednostka', ['parent_id' => $this->lessee->id]);
-        $foreign = $this->resource($this->lessee, 'Sala najemcy', 'S1');
+        $foreign = $this->organizationResource($this->lessee, 'Sala najemcy', 'S1');
 
         $this->assertLeaseConflicts([LeaseConflict::LesseeInOwnerTree], $this->input(lessee: $this->clinic, cooperation: $inTree));
         $this->assertLeaseConflicts([LeaseConflict::NotCooperation], $this->input(cooperation: $plain));
@@ -147,7 +136,7 @@ class ResourceLeaseTest extends ZoneTestCase
     {
         $this->lease();
 
-        $this->assertScheduleConflicts([ScheduleConflict::LeasedOut], new ScheduleInput($this->clinic->id, $this->room->id, $this->doctor, 2, '11:00', '13:00', 15, CarbonImmutable::parse(self::MONDAY)));
+        $this->assertScheduleConflicts([ScheduleConflict::LeasedOut], new ScheduleInput($this->clinic->id, $this->room->id, $this->doctor, 2, '11:00', '13:00', 15, CarbonImmutable::parse(CalendarWeek::MONDAY)));
         $this->schedule($this->clinic, $this->doctor, 2, '12:00', '18:00');
 
         $this->schedule($this->cooperation, $this->guest, 2, '08:00', '12:00');
@@ -155,7 +144,7 @@ class ResourceLeaseTest extends ZoneTestCase
         $this->assertSame(2, ResourceSchedule::query()->where('organization_id', $this->cooperation->id)->count(), 'Lekarz najemcy ma dwa bloki w jednym dniu z przerwą.');
 
         $this->assertScheduleConflicts([ScheduleConflict::OutsideLease], $this->cooperationInput(3, '08:00', '12:00'));
-        $this->assertScheduleConflicts([ScheduleConflict::OutsideLease], new ScheduleInput($this->cooperation->id, $this->room->id, $this->guest, 4, '08:00', '09:00', 15, CarbonImmutable::parse(self::MONDAY)));
+        $this->assertScheduleConflicts([ScheduleConflict::OutsideLease], new ScheduleInput($this->cooperation->id, $this->room->id, $this->guest, 4, '08:00', '09:00', 15, CarbonImmutable::parse(CalendarWeek::MONDAY)));
         $this->assertTrue($this->app->make(OrganizationResources::class)->includes($this->cooperation, $this->room->id), 'Wynajęty zasób jest dostępny w kooperacji.');
         $this->assertFalse($this->app->make(OrganizationResources::class)->owns($this->cooperation, $this->room->id));
     }
@@ -167,7 +156,7 @@ class ResourceLeaseTest extends ZoneTestCase
         $slots = $this->app->make(FreeSlots::class);
         $late = $this->app->make(BookSlot::class)->book($this->cooperation, $this->guest, CarbonImmutable::parse('2026-11-24 08:00'), self::KIND);
 
-        $this->assertCount(4, $slots->on($this->cooperation, $this->guest, CarbonImmutable::parse(self::TUESDAY)));
+        $this->assertCount(4, $slots->on($this->cooperation, $this->guest, CarbonImmutable::parse(CalendarWeek::TUESDAY)));
 
         $left = $this->app->make(SaveLease::class)->terminate($lease, CarbonImmutable::parse('2026-11-20'));
 
@@ -197,11 +186,11 @@ class ResourceLeaseTest extends ZoneTestCase
     {
         $lease = $this->lease();
         $this->schedule($this->cooperation, $this->guest, 2, '08:00', '09:00');
-        $this->app->make(BookSlot::class)->book($this->cooperation, $this->guest, CarbonImmutable::parse(self::TUESDAY . ' 08:15'), self::KIND);
+        $this->app->make(BookSlot::class)->book($this->cooperation, $this->guest, CalendarWeek::at('08:15', CalendarWeek::TUESDAY), self::KIND);
         $leases = $this->app->make(ResourceLeases::class);
         $token = (string) $lease->wallboard_token;
 
-        $entries = $this->app->make(Wallboard::class)->of($lease, CarbonImmutable::parse(self::TUESDAY));
+        $entries = $this->app->make(Wallboard::class)->of($lease, CarbonImmutable::parse(CalendarWeek::TUESDAY));
 
         $this->assertCount(1, $entries);
         $this->assertSame(['08:00', '09:00', 'Lekarz najemcy', 'G3 · Gabinet 3', 1], [$entries[0]->startsAt->format('H:i'), $entries[0]->endsAt->format('H:i'), $entries[0]->performer, $entries[0]->resource, $entries[0]->booked]);
@@ -240,21 +229,21 @@ class ResourceLeaseTest extends ZoneTestCase
         $other = $this->organization('Dietetyka');
         $flexible = $this->organization('Dietetyka — kooperacja', ['parent_id' => $other->id, Organization::IS_COOPERATION => true]);
         $windows = new LeaseWindows([[1, '08:00', '20:00'], [2, '08:00', '20:00']]);
-        $lease = $this->app->make(SaveLease::class)->save(new LeaseInput($this->clinic, $this->room->id, $other, $flexible, 'UN/9', CarbonImmutable::parse(self::MONDAY), null, $windows, [LeaseAccess::Book], null, 1, LeaseMode::OnDemand));
+        $lease = $this->app->make(SaveLease::class)->save(new LeaseInput($this->clinic, $this->room->id, $other, $flexible, 'UN/9', CarbonImmutable::parse(CalendarWeek::MONDAY), null, $windows, [LeaseAccess::Book], null, 1, LeaseMode::OnDemand));
         $save = $this->app->make(SaveSchedule::class);
 
-        $this->assertScheduleConflicts([ScheduleConflict::OutsideLease, ScheduleConflict::ResourceTaken], new ScheduleInput($flexible->id, $this->room->id, $dietitian, 2, '08:00', '20:00', 30, CarbonImmutable::parse(self::MONDAY)));
-        $save->save(new ScheduleInput($flexible->id, $this->room->id, $dietitian, 2, '08:00', '20:00', 30, CarbonImmutable::parse(self::MONDAY), null, 1, true));
-        $save->save(new ScheduleInput($this->clinic->id, $this->room->id, $this->doctor, 1, '09:00', '10:00', 15, CarbonImmutable::parse(self::MONDAY)));
+        $this->assertScheduleConflicts([ScheduleConflict::OutsideLease, ScheduleConflict::ResourceTaken], new ScheduleInput($flexible->id, $this->room->id, $dietitian, 2, '08:00', '20:00', 30, CarbonImmutable::parse(CalendarWeek::MONDAY)));
+        $save->save(new ScheduleInput($flexible->id, $this->room->id, $dietitian, 2, '08:00', '20:00', 30, CarbonImmutable::parse(CalendarWeek::MONDAY), null, 1, true));
+        $save->save(new ScheduleInput($this->clinic->id, $this->room->id, $this->doctor, 1, '09:00', '10:00', 15, CarbonImmutable::parse(CalendarWeek::MONDAY)));
 
-        $times = array_map(static fn($slot): string => $slot->startsAt->format('H:i'), $this->app->make(FreeSlots::class)->on($flexible, $dietitian, CarbonImmutable::parse(self::TUESDAY)));
+        $times = array_map(static fn($slot): string => $slot->startsAt->format('H:i'), $this->app->make(FreeSlots::class)->on($flexible, $dietitian, CarbonImmutable::parse(CalendarWeek::TUESDAY)));
         $this->assertNotContains('08:30', $times, 'Okno najmu na wyłączność innej kooperacji (wt 08:00–12:00).');
         $this->assertNotContains('13:00', $times, 'Grafik właściciela (wt 12:00–14:00).');
         $this->assertNotContains('19:00', $times, 'Okno na wyłączność wt 18:00–22:00.');
         $this->assertSame(['14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30'], $times);
 
-        $booking = $this->app->make(BookSlot::class)->book($flexible, $dietitian, CarbonImmutable::parse(self::TUESDAY . ' 14:00'), self::KIND);
-        $this->app->make(BookSlot::class)->book($flexible, $dietitian, CarbonImmutable::parse(self::TUESDAY . ' 15:00'), self::KIND);
+        $booking = $this->app->make(BookSlot::class)->book($flexible, $dietitian, CalendarWeek::at('14:00', CalendarWeek::TUESDAY), self::KIND);
+        $this->app->make(BookSlot::class)->book($flexible, $dietitian, CalendarWeek::at('15:00', CalendarWeek::TUESDAY), self::KIND);
         $this->assertSame(['booked' => 2], $this->app->make(ResourceLeases::class)->bookingCounts($lease, CarbonImmutable::parse('2026-11-01'), CarbonImmutable::parse('2026-11-30')));
         $this->assertSame(1, ResourceBooking::query()->whereKey($booking->id)->count());
     }
@@ -262,7 +251,7 @@ class ResourceLeaseTest extends ZoneTestCase
     public function test_install_files_create_the_lease_and_the_lessee_schedule_once(): void
     {
         $this->seed(OrganizationsSeeder::class);
-        config(['polygon.install.files' => [$this->file($this->leaseFile())]]);
+        config(['polygon.install.files' => [$this->installFile($this->leaseFile())]]);
 
         $this->command('polygon:install')->expectsOutputToContain('Najem założony: UN/7 · G3 · Gabinet 3')->assertSuccessful();
         $this->command('polygon:install')->expectsOutputToContain('Najem już istnieje: UN/7')->assertSuccessful();
@@ -272,14 +261,14 @@ class ResourceLeaseTest extends ZoneTestCase
         $this->assertSame([LeaseAccess::Book], $lease->accessLevels());
         $this->assertTrue($lease->cooperation?->isCooperation());
         $this->assertSame('2026-11-01', $lease->signed_on?->toDateString(), 'Data zawarcia z pola `signed` — niezależna od rozpoczęcia cyklu.');
-        $this->assertSame(self::MONDAY, $lease->valid_from->toDateString());
+        $this->assertSame(CalendarWeek::MONDAY, $lease->valid_from->toDateString());
         $this->assertSame(2, ResourceSchedule::query()->where('organization_id', $lease->cooperation_organization_id)->count());
     }
 
     public function test_an_install_lease_without_a_cooperation_writes_nothing(): void
     {
         $this->seed(OrganizationsSeeder::class);
-        config(['polygon.install.files' => [$this->file($this->leaseFile(cooperation: false))]]);
+        config(['polygon.install.files' => [$this->installFile($this->leaseFile(cooperation: false))]]);
 
         $this->command('polygon:install')->assertFailed();
 
@@ -301,14 +290,14 @@ class ResourceLeaseTest extends ZoneTestCase
         return [
             'organizations' => [
                 'owner' => ['name' => 'Właściciel', 'resources' => [['key' => 'gabinet-3', 'name' => 'Gabinet 3', 'code' => 'G3']], 'leases' => [[
-                    'resource' => 'gabinet-3', 'lessee' => 'lessee', 'cooperation' => 'lessee-coop', 'number' => 'UN/7', 'signed' => '2026-11-01', 'from' => self::MONDAY, 'to' => '2027-12-31',
+                    'resource' => 'gabinet-3', 'lessee' => 'lessee', 'cooperation' => 'lessee-coop', 'number' => 'UN/7', 'signed' => '2026-11-01', 'from' => CalendarWeek::MONDAY, 'to' => '2027-12-31',
                     'windows' => [['days' => [2], 'from' => '08:00', 'to' => '12:00'], ['days' => [2], 'from' => '18:00', 'to' => '22:00'], ['days' => [4], 'from' => '08:00', 'to' => '12:00']],
                     'access' => ['book'],
                 ]]],
                 'lessee' => ['name' => 'Najemca'],
                 'lessee-coop' => ['name' => 'Najemca — kooperacja', 'parent' => 'lessee', 'is_cooperation' => $cooperation, 'schedule' => [
-                    ['resource' => 'gabinet-3', 'performer' => $performer, 'weekday' => 2, 'from' => '08:00', 'to' => '12:00', 'slot' => 20, 'valid_from' => self::MONDAY, 'valid_to' => '2027-12-31'],
-                    ['resource' => 'gabinet-3', 'performer' => $performer, 'weekday' => 2, 'from' => '18:00', 'to' => '22:00', 'slot' => 20, 'valid_from' => self::MONDAY, 'valid_to' => '2027-12-31'],
+                    ['resource' => 'gabinet-3', 'performer' => $performer, 'weekday' => 2, 'from' => '08:00', 'to' => '12:00', 'slot' => 20, 'valid_from' => CalendarWeek::MONDAY, 'valid_to' => '2027-12-31'],
+                    ['resource' => 'gabinet-3', 'performer' => $performer, 'weekday' => 2, 'from' => '18:00', 'to' => '22:00', 'slot' => 20, 'valid_from' => CalendarWeek::MONDAY, 'valid_to' => '2027-12-31'],
                 ]],
             ],
             'zones' => ['alpha' => ['accounts' => [['email' => 'zew@example.com', 'name' => 'Lekarz zewnętrzny', 'organizations' => ['lessee-coop' => []]]]]],
@@ -321,7 +310,7 @@ class ResourceLeaseTest extends ZoneTestCase
      */
     private function input(?Organization $lessee = null, ?Organization $cooperation = null, ?int $resourceId = null, string $number = 'UN/1', array $windows = [[2, '08:00', '12:00'], [2, '18:00', '22:00']], array $access = [LeaseAccess::Book, LeaseAccess::Wallboard]): LeaseInput
     {
-        return new LeaseInput($this->clinic, $resourceId ?? $this->room->id, $lessee ?? $this->lessee, $cooperation ?? $this->cooperation, $number, CarbonImmutable::parse(self::MONDAY), CarbonImmutable::parse('2026-12-31'), new LeaseWindows($windows), $access);
+        return new LeaseInput($this->clinic, $resourceId ?? $this->room->id, $lessee ?? $this->lessee, $cooperation ?? $this->cooperation, $number, CarbonImmutable::parse(CalendarWeek::MONDAY), CarbonImmutable::parse('2026-12-31'), new LeaseWindows($windows), $access);
     }
 
     /**
@@ -334,14 +323,14 @@ class ResourceLeaseTest extends ZoneTestCase
 
     private function cooperationInput(int $weekday, string $from, string $to): ScheduleInput
     {
-        return new ScheduleInput($this->cooperation->id, $this->room->id, $this->guest, $weekday, $from, $to, 15, CarbonImmutable::parse(self::MONDAY), CarbonImmutable::parse('2026-12-31'));
+        return new ScheduleInput($this->cooperation->id, $this->room->id, $this->guest, $weekday, $from, $to, 15, CarbonImmutable::parse(CalendarWeek::MONDAY), CarbonImmutable::parse('2026-12-31'));
     }
 
     private function schedule(Organization $unit, ZoneAccount $performer, int $weekday, string $from, string $to): ResourceSchedule
     {
         $validTo = $unit->is($this->cooperation) ? CarbonImmutable::parse('2026-12-31') : null;
 
-        return $this->app->make(SaveSchedule::class)->save(new ScheduleInput($unit->id, $this->room->id, $performer, $weekday, $from, $to, 15, CarbonImmutable::parse(self::MONDAY), $validTo));
+        return $this->app->make(SaveSchedule::class)->save(new ScheduleInput($unit->id, $this->room->id, $performer, $weekday, $from, $to, 15, CarbonImmutable::parse(CalendarWeek::MONDAY), $validTo));
     }
 
     /**
@@ -368,25 +357,5 @@ class ResourceLeaseTest extends ZoneTestCase
         } catch (ScheduleRejected $rejected) {
             $this->assertSame($expected, $rejected->conflicts);
         }
-    }
-
-    private function resource(Organization $organization, string $name, string $code): OrganizationResource
-    {
-        $resource = new OrganizationResource();
-        $resource->forceFill(['organization_id' => $organization->id, 'name' => $name, 'code' => $code, 'kind' => ResourceKind::Room, 'is_active' => true])->save();
-
-        return $resource;
-    }
-
-    /**
-     * @param array<string, mixed> $data
-     */
-    private function file(array $data): string
-    {
-        $path = tempnam(sys_get_temp_dir(), 'install');
-        $this->assertIsString($path);
-        file_put_contents($path, json_encode($data, JSON_THROW_ON_ERROR));
-
-        return $path;
     }
 }

@@ -21,12 +21,12 @@ use Simplysmart\Polygon\Calendar\BookSlot;
 use Simplysmart\Polygon\Calendar\SaveSchedule;
 use Simplysmart\Polygon\Calendar\ScheduleInput;
 use Simplysmart\Polygon\Calendar\SlotUnavailable;
-use Simplysmart\Polygon\Enums\ResourceKind;
 use Simplysmart\Polygon\Models\MainModel;
 use Simplysmart\Polygon\Models\Organization;
 use Simplysmart\Polygon\Models\OrganizationResource;
 use Simplysmart\Polygon\Models\PolygonAccount;
 use Simplysmart\Polygon\Models\ResourceBooking;
+use Tests\Fixtures\Calendar\CalendarWeek;
 use Tests\TestCase;
 
 /**
@@ -45,7 +45,6 @@ class BookingConcurrencyTest extends TestCase
 
     private const string SECOND = 'polygon_concurrency_second';
 
-    private const string MONDAY = '2026-11-09';
 
     /** Kod MySQL przekroczenia czasu oczekiwania na blokadę. */
     private const int LOCK_WAIT_TIMEOUT = 1205;
@@ -75,13 +74,11 @@ class BookingConcurrencyTest extends TestCase
         DB::purge(self::CONNECTION);
         DB::purge(self::SECOND);
         $this->command('migrate:fresh', ['--database' => self::CONNECTION, '--force' => true])->assertSuccessful();
-        CarbonImmutable::setTestNow(CarbonImmutable::parse(self::MONDAY . ' 07:00'));
+        CarbonImmutable::setTestNow(CalendarWeek::at('07:00'));
     }
 
     protected function tearDown(): void
     {
-        CarbonImmutable::setTestNow();
-
         if (config('database.connections.' . self::SECOND) !== null) {
             DB::connection(self::SECOND)->rollBack();
         }
@@ -92,11 +89,10 @@ class BookingConcurrencyTest extends TestCase
     public function test_a_parallel_booking_of_the_same_slot_waits_for_the_lock_and_is_then_rejected(): void
     {
         $clinic = $this->organization('Poradnia');
-        $room = new OrganizationResource();
-        $room->forceFill(['organization_id' => $clinic->id, 'name' => 'Gabinet 1', 'code' => 'G1', 'kind' => ResourceKind::Room, 'is_active' => true])->save();
+        $room = $this->organizationResource($clinic, 'Gabinet 1', 'G1');
         $this->command('polygon:account:create', ['email' => 'lekarz@example.com', 'name' => 'Lekarz'])->assertSuccessful();
         $performer = PolygonAccount::query()->sole();
-        $this->app->make(SaveSchedule::class)->save(new ScheduleInput($clinic->id, $room->id, $performer, 1, '08:00', '09:00', 15, CarbonImmutable::parse(self::MONDAY)));
+        $this->app->make(SaveSchedule::class)->save(new ScheduleInput($clinic->id, $room->id, $performer, 1, '08:00', '09:00', 15, CarbonImmutable::parse(CalendarWeek::MONDAY)));
 
         $second = DB::connection(self::SECOND);
         $second->beginTransaction();
@@ -104,7 +100,7 @@ class BookingConcurrencyTest extends TestCase
         $second->table(ResourceBooking::TABLE)->insert([
             'token' => Str::random(MainModel::TOKEN_LENGTH), 'name' => 'równoległa rezerwacja', 'status' => 'booked', 'is_active' => true,
             'organization_id' => $clinic->id, 'resource_id' => $room->id, 'performer_type' => $performer->getMorphClass(), 'performer_id' => $performer->id,
-            'kind' => 'test.visit', 'starts_at' => self::MONDAY . ' 08:15:00', 'ends_at' => self::MONDAY . ' 08:30:00', 'created_at' => now(), 'updated_at' => now(),
+            'kind' => 'test.visit', 'starts_at' => CalendarWeek::MONDAY . ' 08:15:00', 'ends_at' => CalendarWeek::MONDAY . ' 08:30:00', 'created_at' => now(), 'updated_at' => now(),
         ]);
         DB::connection(self::CONNECTION)->statement('SET SESSION innodb_lock_wait_timeout = 1');
 
@@ -127,6 +123,6 @@ class BookingConcurrencyTest extends TestCase
 
     private function book(Organization $clinic, PolygonAccount $performer): ResourceBooking
     {
-        return $this->app->make(BookSlot::class)->book($clinic, $performer, CarbonImmutable::parse(self::MONDAY . ' 08:15'), 'test.visit');
+        return $this->app->make(BookSlot::class)->book($clinic, $performer, CalendarWeek::at('08:15'), 'test.visit');
     }
 }

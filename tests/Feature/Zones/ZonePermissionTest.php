@@ -16,7 +16,6 @@ namespace Tests\Feature\Zones;
 use Simplysmart\Polygon\Database\Seeders\HeroOrganizationSeeder;
 use LogicException;
 use Simplysmart\Polygon\Models\Organization;
-use Simplysmart\Polygon\Models\Permissions\Permission;
 use Simplysmart\Polygon\Organizations\OrganizationMembership;
 use Simplysmart\Polygon\Permissions\OrganizationRoles;
 use Tests\Fixtures\Zones\AlphaAccount;
@@ -102,7 +101,7 @@ class ZonePermissionTest extends ZoneTestCase
         $south = $this->organization('Południe');
         $this->role('doctor', 'alpha');
         $roles = $this->app->make(OrganizationRoles::class);
-        $anna = $this->account(AlphaAccount::class, ['name' => 'Anna', 'email' => 'anna@example.com']);
+        $anna = $this->account(AlphaAccount::class, ['name' => 'Anna', 'email' => self::EMAIL]);
         $roles->assign($anna, ['doctor'], $north->id);
         $roles->assign($this->account(AlphaAccount::class, ['name' => 'Bartek', 'email' => 'bartek@example.com']), ['doctor'], $south->id);
         $roles->assign($this->account(AlphaAccount::class, ['name' => 'Globalny', 'email' => 'global@example.com']), ['doctor'], null);
@@ -141,13 +140,5 @@ class ZonePermissionTest extends ZoneTestCase
         } catch (LogicException) {
             $this->assertSame([], $roles->names($account, null), 'Role nie trafiają do ról globalnych.');
         }
-    }
-
-    private function permission(string $name, string $guard): Permission
-    {
-        $permission = new Permission();
-        $permission->forceFill(['name' => $name, 'guard_name' => $guard])->save();
-
-        return $permission;
     }
 }

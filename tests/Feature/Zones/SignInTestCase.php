@@ -22,8 +22,6 @@ use Simplysmart\Polygon\Mail\LoginCodeMail;
  */
 abstract class SignInTestCase extends ZoneTestCase
 {
-    protected const string EMAIL = 'anna@example.com';
-
     protected const string PIN = '159357';
 
     protected function setUp(): void
@@ -40,7 +38,7 @@ abstract class SignInTestCase extends ZoneTestCase
      */
     protected function requestCode(string $email = self::EMAIL, array $server = []): TestResponse
     {
-        return $this->withServerVariables($server)->post('/alpha/signin', ['email' => $email]);
+        return $this->withServerVariables($server)->post(route('alpha.auth.login.store'), ['email' => $email]);
     }
 
     /**
@@ -74,7 +72,7 @@ abstract class SignInTestCase extends ZoneTestCase
      */
     protected function submitCode(string $code): TestResponse
     {
-        return $this->post('/alpha/signin/code', ['code' => $code]);
+        return $this->post(route('alpha.auth.code.store'), ['code' => $code]);
     }
 
     /**
@@ -82,6 +80,6 @@ abstract class SignInTestCase extends ZoneTestCase
      */
     protected function submitPin(string $pin): TestResponse
     {
-        return $this->post('/alpha/signin/pin', ['pin' => $pin]);
+        return $this->post(route('alpha.auth.pin.store'), ['pin' => $pin]);
     }
 }

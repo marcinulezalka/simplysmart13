@@ -38,7 +38,7 @@ class OrganizationResourcesTest extends TestCase
 
     public function test_resources_get_the_standard_table_with_history_and_user_ids(): void
     {
-        $resource = $this->resource($this->organization('Siedziba'), 'Gabinet 1', 'G1');
+        $resource = $this->organizationResource($this->organization('Siedziba'), 'Gabinet 1', 'G1');
 
         $this->assertTrue(Schema::hasTable(History::tableFor(OrganizationResource::TABLE)));
         $this->assertSame(IdSlots::FIRST_USER_ID, $resource->id);
@@ -49,12 +49,12 @@ class OrganizationResourcesTest extends TestCase
 
     public function test_the_code_is_unique_in_an_organization_only(): void
     {
-        $this->resource($this->organization('A'), 'Gabinet', 'G1');
-        $this->resource($other = $this->organization('B'), 'Gabinet', 'G1');
+        $this->organizationResource($this->organization('A'), 'Gabinet', 'G1');
+        $this->organizationResource($other = $this->organization('B'), 'Gabinet', 'G1');
 
         $this->expectException(QueryException::class);
 
-        $this->resource($other, 'Drugi', 'G1');
+        $this->organizationResource($other, 'Drugi', 'G1');
     }
 
     public function test_a_unit_uses_its_own_and_its_ancestors_active_resources(): void
@@ -62,11 +62,11 @@ class OrganizationResourcesTest extends TestCase
         $seat = $this->organization('Siedziba');
         $clinic = $this->organization('Poradnia', ['parent_id' => $seat->id]);
         $sibling = $this->organization('Inna poradnia', ['parent_id' => $seat->id]);
-        $room = $this->resource($seat, 'Gabinet 1', 'G1');
-        $own = $this->resource($clinic, 'Gabinet 2', 'G2');
-        $this->resource($clinic, 'Audiometr', 'A1', ResourceKind::Equipment);
-        $this->resource($sibling, 'Gabinet sąsiada', 'S1');
-        $this->resource($seat, 'Zamknięty', 'Z1')->forceFill(['is_active' => false])->save();
+        $room = $this->organizationResource($seat, 'Gabinet 1', 'G1');
+        $own = $this->organizationResource($clinic, 'Gabinet 2', 'G2');
+        $this->organizationResource($clinic, 'Audiometr', 'A1', ResourceKind::Equipment);
+        $this->organizationResource($sibling, 'Gabinet sąsiada', 'S1');
+        $this->organizationResource($seat, 'Zamknięty', 'Z1')->forceFill(['is_active' => false])->save();
         $resources = $this->app->make(OrganizationResources::class);
 
         $this->assertSame(['Gabinet 1', 'Gabinet 2'], $resources->available($clinic, ResourceKind::Room)->pluck('name')->all());
@@ -81,7 +81,7 @@ class OrganizationResourcesTest extends TestCase
     public function test_install_files_create_missing_resources_once(): void
     {
         $this->seed(OrganizationsSeeder::class);
-        config(['polygon.install.files' => [$this->file($this->resourcesFile())]]);
+        config(['polygon.install.files' => [$this->installFile($this->resourcesFile())]]);
 
         $this->command('polygon:install')->expectsOutput('Zasób założony: Gabinet 1.')->expectsOutput('Zasób założony: Audiometr.')->assertSuccessful();
         $this->installedResource('gabinet-1')->forceFill(['name' => 'Zmieniony w aplikacji'])->save();
@@ -110,7 +110,7 @@ class OrganizationResourcesTest extends TestCase
         ];
 
         foreach ($broken as $case => $resources) {
-            config(['polygon.install.files' => [$this->file(['organizations' => ['seat' => ['name' => 'Siedziba', 'resources' => $resources]]])]]);
+            config(['polygon.install.files' => [$this->installFile(['organizations' => ['seat' => ['name' => 'Siedziba', 'resources' => $resources]]])]]);
 
             $this->command('polygon:install')->assertFailed();
 
@@ -130,28 +130,8 @@ class OrganizationResourcesTest extends TestCase
         ]];
     }
 
-    private function resource(Organization $organization, string $name, ?string $code, ResourceKind $kind = ResourceKind::Room): OrganizationResource
-    {
-        $resource = new OrganizationResource();
-        $resource->forceFill([Organization::FOREIGN_KEY => $organization->id, 'name' => $name, 'code' => $code, 'kind' => $kind, 'is_active' => true])->save();
-
-        return $resource;
-    }
-
     private function installedResource(string $key): OrganizationResource
     {
         return OrganizationResource::query()->where('json_attributes->' . OrganizationInstaller::INSTALL_KEY, $key)->sole();
-    }
-
-    /**
-     * @param array<string, mixed> $data
-     */
-    private function file(array $data): string
-    {
-        $path = tempnam(sys_get_temp_dir(), 'install');
-        $this->assertIsString($path);
-        file_put_contents($path, json_encode($data, JSON_THROW_ON_ERROR));
-
-        return $path;
     }
 }

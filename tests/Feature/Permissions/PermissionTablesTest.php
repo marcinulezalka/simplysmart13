@@ -60,7 +60,7 @@ class PermissionTablesTest extends TestCase
     public function test_roles_and_permissions_get_standard_columns_and_user_ids(): void
     {
         $role = $this->role('editor', self::GUARD);
-        $permission = $this->permission('articles.edit');
+        $permission = $this->permission('articles.edit', self::GUARD);
 
         $this->assertSame(IdSlots::FIRST_USER_ID, $role->id);
         $this->assertSame(IdSlots::FIRST_USER_ID, $permission->id);
@@ -72,7 +72,7 @@ class PermissionTablesTest extends TestCase
     public function test_user_gets_permissions_through_a_role(): void
     {
         $role = $this->role('editor', self::GUARD);
-        $role->givePermissionTo($this->permission('articles.edit'));
+        $role->givePermissionTo($this->permission('articles.edit', self::GUARD));
         $user = User::factory()->create();
 
         $user->assignRole($role);
@@ -81,12 +81,4 @@ class PermissionTablesTest extends TestCase
         $this->assertSame(1, DB::table(History::tableFor(PermissionTables::MODEL_HAS_ROLES))->where('action', 'insert')->count());
     }
 
-
-    private function permission(string $name): Permission
-    {
-        $permission = new Permission();
-        $permission->forceFill(['name' => $name, 'guard_name' => self::GUARD])->save();
-
-        return $permission;
-    }
 }

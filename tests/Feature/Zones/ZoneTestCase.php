@@ -18,8 +18,10 @@ use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\ViewErrorBag;
+use Simplysmart\Polygon\Auth\AccountColumns;
 use Simplysmart\Polygon\Auth\SignIn\CompleteSignIn;
 use Simplysmart\Polygon\Contracts\ZoneRegistry;
+use Simplysmart\Polygon\Database\ColumnNames;
 use Simplysmart\Polygon\Database\ZoneTables;
 use Simplysmart\Polygon\Models\ZoneAccount;
 use Simplysmart\Polygon\Zones\ZoneSessionConfigurator;
@@ -38,6 +40,9 @@ use Tests\TestCase;
 abstract class ZoneTestCase extends TestCase
 {
     use RefreshDatabase;
+
+    /** Domyślny adres konta tworzonego przez account(). */
+    protected const string EMAIL = 'anna@example.com';
 
     protected function setUp(): void
     {
@@ -63,7 +68,7 @@ abstract class ZoneTestCase extends TestCase
     }
 
     /**
-     * Konto strefy zapisane w bazie; PIN podany jawnie trafia do bazy jako hash.
+     * Konto strefy zapisane w bazie (domyślnie z adresem EMAIL); PIN podany jawnie trafia do bazy jako hash.
      *
      * @template TAccount of ZoneAccount
      *
@@ -76,10 +81,10 @@ abstract class ZoneTestCase extends TestCase
     {
         $account = new $model();
         $account->forceFill([
-            'name' => 'Anna Nowak',
-            'email' => 'anna@example.com',
-            'pin_hash' => $pin === null ? null : Hash::make($pin),
-            'is_active' => true,
+            ColumnNames::NAME => 'Anna Nowak',
+            AccountColumns::EMAIL => self::EMAIL,
+            AccountColumns::PIN_HASH => $pin === null ? null : Hash::make($pin),
+            ColumnNames::IS_ACTIVE => true,
             ...$attributes,
         ])->save();
 

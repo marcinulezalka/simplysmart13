@@ -38,7 +38,7 @@ class SignInProtectionTest extends SignInTestCase
             $this->submitPin('000000')->assertSessionHasErrors(['pin' => text('sign_in.failure')]);
         }
 
-        $this->submitPin('000000')->assertRedirect('/alpha/signin')->assertSessionHasErrors(['email' => text('sign_in.failure')]);
+        $this->submitPin('000000')->assertRedirect(route('alpha.auth.login'))->assertSessionHasErrors(['email' => text('sign_in.failure')]);
 
         $account->refresh();
         $this->assertTrue($account->isLocked());
@@ -51,7 +51,7 @@ class SignInProtectionTest extends SignInTestCase
         $account = $this->account(AlphaAccount::class, ['pin_failed_attempts' => 5, 'lock_level' => 1], self::PIN);
 
         $this->reachPinStep();
-        $this->submitPin('000000')->assertRedirect('/alpha/signin');
+        $this->submitPin('000000')->assertRedirect(route('alpha.auth.login'));
 
         $account->refresh();
         $this->assertSame(2, $account->lockLevel());
@@ -112,7 +112,7 @@ class SignInProtectionTest extends SignInTestCase
 
         $account->forceFill(['auth_epoch' => 1])->save();
 
-        $this->get('/alpha/dashboard')->assertRedirect('/alpha/signin');
+        $this->get('/alpha/dashboard')->assertRedirect(route('alpha.auth.login'));
         $this->assertGuest('alpha');
     }
 
@@ -123,7 +123,7 @@ class SignInProtectionTest extends SignInTestCase
 
         $account->forceFill(['is_active' => false])->save();
 
-        $this->get('/alpha/dashboard')->assertRedirect('/alpha/signin');
+        $this->get('/alpha/dashboard')->assertRedirect(route('alpha.auth.login'));
         $this->assertGuest('alpha');
     }
 
@@ -141,6 +141,6 @@ class SignInProtectionTest extends SignInTestCase
     private function reachPinStep(): void
     {
         $this->requestCode();
-        $this->submitCode($this->sentCode())->assertRedirect('/alpha/signin/pin');
+        $this->submitCode($this->sentCode())->assertRedirect(route('alpha.auth.pin'));
     }
 }

@@ -73,7 +73,7 @@ class InstallerTest extends TestCase
 
     public function test_project_file_adds_its_roles_and_accounts(): void
     {
-        $file = $this->file(['zones' => ['polygon' => [
+        $file = $this->installFile(['zones' => ['polygon' => [
             'permissions' => ['reports.view'],
             'roles' => ['analyst' => ['permissions' => ['reports.view']], 'lead' => ['inherits' => ['analyst'], 'permissions' => []]],
             'accounts' => [['email' => 'Anna@Example.com', 'name' => 'Anna Nowak', 'roles' => ['lead']], ['email' => 'root@example.com', 'name' => 'Root', 'roles' => ['hero']]],
@@ -92,7 +92,7 @@ class InstallerTest extends TestCase
 
     public function test_account_with_an_undefined_role_writes_nothing(): void
     {
-        config(['polygon.install.files' => [$this->file(['zones' => ['polygon' => ['accounts' => [['email' => 'x@example.com', 'name' => 'X', 'roles' => ['missing']]]]]])]]);
+        config(['polygon.install.files' => [$this->installFile(['zones' => ['polygon' => ['accounts' => [['email' => 'x@example.com', 'name' => 'X', 'roles' => ['missing']]]]]])]]);
 
         $this->command('polygon:install')->assertFailed();
 
@@ -101,7 +101,7 @@ class InstallerTest extends TestCase
 
     public function test_invalid_file_writes_nothing(): void
     {
-        config(['polygon.install.files' => [$this->file(['zones' => ['polygon' => ['roles' => ['broken' => ['permissions' => ['missing.permission']]]]]])]]);
+        config(['polygon.install.files' => [$this->installFile(['zones' => ['polygon' => ['roles' => ['broken' => ['permissions' => ['missing.permission']]]]]])]]);
 
         $this->command('polygon:install')->assertFailed();
 
@@ -128,7 +128,7 @@ class InstallerTest extends TestCase
 
         foreach ($files as $data) {
             try {
-                $parser->parse($this->file($data));
+                $parser->parse($this->installFile($data));
                 $this->fail('Plik powinien zostać odrzucony: ' . json_encode($data));
             } catch (InvalidInstallFile) {
                 $this->addToAssertionCount(1);
@@ -138,7 +138,7 @@ class InstallerTest extends TestCase
 
     public function test_catalog_roles_reach_every_zone_and_the_zone_sets_their_permissions(): void
     {
-        $file = $this->file([
+        $file = $this->installFile([
             'roles' => ['nurse' => ['permissions' => []], 'auditor' => ['permissions' => '*']],
             'zones' => ['polygon' => ['permissions' => ['reports.view'], 'roles' => ['nurse' => ['permissions' => ['reports.view']]]]],
         ]);
@@ -153,7 +153,7 @@ class InstallerTest extends TestCase
 
     public function test_later_file_replaces_a_role(): void
     {
-        config(['polygon.install.files' => [$this->file(['zones' => ['polygon' => ['roles' => ['owner' => ['permissions' => []]]]]])]]);
+        config(['polygon.install.files' => [$this->installFile(['zones' => ['polygon' => ['roles' => ['owner' => ['permissions' => []]]]]])]]);
         $this->command('polygon:install')->assertSuccessful();
 
         $this->assertSame([], Role::findByName('owner', PolygonZone::GUARD)->permissions->pluck('name')->all(), 'Późniejszy plik zastępuje rolę.');
@@ -183,7 +183,7 @@ class InstallerTest extends TestCase
     public function test_organizations_are_created_as_a_tree_and_accounts_join_them_as_staff(): void
     {
         $this->seed(OrganizationsSeeder::class);
-        config(['polygon.install.files' => [$this->file($this->organizationFile())]]);
+        config(['polygon.install.files' => [$this->installFile($this->organizationFile())]]);
 
         $this->command('polygon:install')
             ->expectsOutput('Organizacja założona: Centrum Medyczne.')
@@ -204,7 +204,7 @@ class InstallerTest extends TestCase
     {
         $this->seed(OrganizationsSeeder::class);
         $file = $this->organizationFile(extraAccount: ['email' => 'ewa@example.com', 'name' => 'Ewa Lis', 'organizations' => ['clinic' => ['owner'], 'clinic-desk' => ['doctor']]]);
-        config(['polygon.install.files' => [$this->file($file)]]);
+        config(['polygon.install.files' => [$this->installFile($file)]]);
 
         $this->command('polygon:install')->assertSuccessful();
 
@@ -224,7 +224,7 @@ class InstallerTest extends TestCase
         $this->seed(OrganizationsSeeder::class);
         $organizations = Organization::query()->count();
         $file = $this->organizationFile(extraAccount: ['email' => 'ewa@example.com', 'name' => 'Ewa Lis', 'organizations' => ['clinic' => ['missing']]]);
-        config(['polygon.install.files' => [$this->file($file)]]);
+        config(['polygon.install.files' => [$this->installFile($file)]]);
 
         $this->command('polygon:install')->expectsOutputToContain('has the undefined role [missing]')->assertFailed();
 
@@ -235,12 +235,12 @@ class InstallerTest extends TestCase
     public function test_running_again_keeps_organizations_and_adds_memberships_to_existing_accounts(): void
     {
         $this->seed(OrganizationsSeeder::class);
-        config(['polygon.install.files' => [$this->file($this->organizationFile(secondAccountJoins: false))]]);
+        config(['polygon.install.files' => [$this->installFile($this->organizationFile(secondAccountJoins: false))]]);
         $this->command('polygon:install')->assertSuccessful();
         $this->installed('clinic')->forceFill(['name' => 'Zmieniona w aplikacji'])->save();
         $members = OrganizationMember::query()->count();
 
-        config(['polygon.install.files' => [$this->file($this->organizationFile())]]);
+        config(['polygon.install.files' => [$this->installFile($this->organizationFile())]]);
         $this->command('polygon:install')->expectsOutput('Organizacja już istnieje: Zmieniona w aplikacji (bez zmian).')->assertSuccessful();
 
         $this->assertSame(2, Organization::query()->where('json_attributes->' . OrganizationInstaller::INSTALL_KEY, '!=', '')->count());
@@ -252,7 +252,7 @@ class InstallerTest extends TestCase
     public function test_an_organization_can_sit_under_the_hidden_hero_organization(): void
     {
         $this->seed(OrganizationsSeeder::class);
-        config(['polygon.install.files' => [$this->file(['organizations' => ['client' => ['name' => 'Klient', 'parent' => Organization::HERO_KEY]]])]]);
+        config(['polygon.install.files' => [$this->installFile(['organizations' => ['client' => ['name' => 'Klient', 'parent' => Organization::HERO_KEY]]])]]);
 
         $this->command('polygon:install')->expectsOutput('Organizacja założona: Klient.')->assertSuccessful();
 
@@ -263,7 +263,7 @@ class InstallerTest extends TestCase
 
     public function test_a_hero_parent_needs_the_hero_organization(): void
     {
-        config(['polygon.install.files' => [$this->file(['organizations' => ['client' => ['name' => 'Klient', 'parent' => Organization::HERO_KEY]]])]]);
+        config(['polygon.install.files' => [$this->installFile(['organizations' => ['client' => ['name' => 'Klient', 'parent' => Organization::HERO_KEY]]])]]);
 
         $this->command('polygon:install')->expectsOutputToContain('the hero organization does not exist')->assertFailed();
 
@@ -288,7 +288,7 @@ class InstallerTest extends TestCase
         ];
 
         foreach ($broken as $case => $data) {
-            config(['polygon.install.files' => [$this->file($data)]]);
+            config(['polygon.install.files' => [$this->installFile($data)]]);
 
             $this->command('polygon:install')->assertFailed();
 
@@ -300,7 +300,7 @@ class InstallerTest extends TestCase
     public function test_attributes_reach_new_and_existing_organizations_and_accounts(): void
     {
         $this->seed(OrganizationsSeeder::class);
-        config(['polygon.install.files' => [$this->file($this->attributesFile('000000001234', 'lekarz'))]]);
+        config(['polygon.install.files' => [$this->installFile($this->attributesFile('000000001234', 'lekarz'))]]);
 
         $this->command('polygon:install')->assertSuccessful();
 
@@ -309,7 +309,7 @@ class InstallerTest extends TestCase
         $this->assertSame(['pwz' => '3123456', 'title' => 'lekarz'], data_get($this->zoneAccount('ewa@example.com')->getAttribute('json_attributes'), 'doctor'));
 
         $clinic->forceFill(['json_attributes' => [...$clinic->json_attributes ?? [], 'icon' => 'heart']])->save();
-        config(['polygon.install.files' => [$this->file($this->attributesFile('000000001235', 'lekarz dentysta'))]]);
+        config(['polygon.install.files' => [$this->installFile($this->attributesFile('000000001235', 'lekarz dentysta'))]]);
         $this->command('polygon:install')->assertSuccessful();
 
         $clinic->refresh();
@@ -322,7 +322,7 @@ class InstallerTest extends TestCase
         $this->seed(OrganizationsSeeder::class);
 
         foreach ([['install_key' => 'x'], ['Bad-Key' => 1], ['deep' => ['a' => ['b' => ['c' => ['d' => 1]]]]]] as $attributes) {
-            config(['polygon.install.files' => [$this->file($this->organizationFile(clinicAttributes: $attributes))]]);
+            config(['polygon.install.files' => [$this->installFile($this->organizationFile(clinicAttributes: $attributes))]]);
 
             $this->command('polygon:install')->assertFailed();
             $this->assertSame(0, Organization::query()->where('name', 'Centrum Medyczne')->count());
@@ -397,18 +397,5 @@ class InstallerTest extends TestCase
     private function counts(): array
     {
         return [Permission::query()->count(), Role::query()->count(), PolygonAccount::withTrashed()->count()];
-    }
-
-
-    /**
-     * @param array<string, mixed> $data
-     */
-    private function file(array $data): string
-    {
-        $path = tempnam(sys_get_temp_dir(), 'install');
-        $this->assertIsString($path);
-        file_put_contents($path, json_encode($data, JSON_THROW_ON_ERROR));
-
-        return $path;
     }
 }

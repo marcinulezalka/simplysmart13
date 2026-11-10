@@ -42,12 +42,12 @@ class AccountSecurityTest extends SignInTestCase
         $epoch = $account->fresh()?->authEpoch();
 
         $this->delete('/alpha/account/security/sessions')
-            ->assertRedirect('/alpha/signin')
+            ->assertRedirect(route('alpha.auth.login'))
             ->assertSessionHas(StatusMessage::KEY, text('account.signed_out_everywhere'));
 
         $this->assertGuest('alpha');
         $this->assertNotSame($epoch, $account->fresh()?->authEpoch());
-        $this->get('/alpha/account/security')->assertRedirect('/alpha/signin');
+        $this->get('/alpha/account/security')->assertRedirect(route('alpha.auth.login'));
     }
 
     public function test_old_section_addresses_lead_to_the_security_page(): void
@@ -80,8 +80,8 @@ class AccountSecurityTest extends SignInTestCase
 
         $this->post('/alpha/account/lock');
         $this->get('/alpha/account/unlock')->assertOk();
-        $this->post('/alpha/signin/out')->assertRedirect();
-        $this->get('/alpha/page')->assertRedirect(url('/alpha/signin'));
+        $this->post(route('alpha.auth.logout'))->assertRedirect();
+        $this->get('/alpha/page')->assertRedirect(route('alpha.auth.login'));
     }
 
     private function signIn(): void

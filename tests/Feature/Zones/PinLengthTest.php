@@ -72,8 +72,8 @@ class PinLengthTest extends SignInTestCase
         $this->requestCode();
         $this->submitCode($this->sentCode());
 
-        $this->get('/alpha/signin/pin-setup')->assertSee('data-screen="pin_setup"', false)->assertViewHas('pinLength', new PinLength(4, 16));
-        $this->post('/alpha/signin/pin-setup', ['pin' => '1593574826159374', 'pin_confirmation' => '1593574826159374'])->assertRedirect('/alpha/dashboard');
+        $this->get(route('alpha.auth.pin-setup'))->assertSee('data-screen="pin_setup"', false)->assertViewHas('pinLength', new PinLength(4, 16));
+        $this->post(route('alpha.auth.pin-setup.store'), ['pin' => '1593574826159374', 'pin_confirmation' => '1593574826159374'])->assertRedirect('/alpha/dashboard');
 
         $this->assertAuthenticated('alpha');
     }

@@ -48,11 +48,11 @@ class DictionaryManagementTest extends TestCase
 
     public function test_default_entries_and_interface_languages_cannot_be_disabled(): void
     {
-        $this->assertRejected(fn() => $this->management->setActive($this->poland, false));
+        $this->assertDictionaryChangeRejected(fn() => $this->management->setActive($this->poland, false));
 
         $polish = (new Language())->forceFill(['name' => 'polski', 'code' => 'pl', 'is_active' => true, 'is_interface' => true]);
         $polish->save();
-        $this->assertRejected(fn() => $this->management->setActive($polish, false));
+        $this->assertDictionaryChangeRejected(fn() => $this->management->setActive($polish, false));
 
         $german = (new Language())->forceFill(['name' => 'niemiecki', 'code' => 'de', 'is_active' => true]);
         $german->save();
@@ -67,7 +67,7 @@ class DictionaryManagementTest extends TestCase
 
         $this->assertSame('2010-12-31', $old->refresh()->valid_to?->toDateString());
         $this->assertSame(2, TaxRate::query()->count());
-        $this->assertRejected(fn() => $this->management->addTaxRate($this->poland, TaxRateType::Standard, '120', CarbonImmutable::parse('2012-01-01')));
+        $this->assertDictionaryChangeRejected(fn() => $this->management->addTaxRate($this->poland, TaxRateType::Standard, '120', CarbonImmutable::parse('2012-01-01')));
     }
 
     public function test_interface_languages_come_from_the_dictionary_within_the_config(): void
@@ -83,7 +83,12 @@ class DictionaryManagementTest extends TestCase
         $this->assertSame('pl', $locales->default());
     }
 
-    private function assertRejected(callable $action): void
+    /**
+     * Zmiana słownika odrzucona wyjątkiem DictionaryChangeRejected.
+     *
+     * @param callable(): mixed $action
+     */
+    private function assertDictionaryChangeRejected(callable $action): void
     {
         try {
             $action();

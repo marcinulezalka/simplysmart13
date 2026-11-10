@@ -87,9 +87,9 @@ class ContractorsTest extends TestCase
         $this->assertSame([self::NIP, self::REGON, 'PL', 'Budowlana', '525-234-40-78'], [$contractor->nip, $contractor->regon, $contractor->country_code, $contractor->displayName(), $contractor->formattedNip()]);
         $this->assertSame($contractor->id, $save->save($seat, new ContractorData('Zmieniona nazwa', nip: self::NIP), $contractor)->id, 'Zapis tego samego kontrahenta nie koliduje z jego NIP-em.');
         $this->assertSame(self::NIP, $save->save($this->organization('Inna organizacja'), new ContractorData('Ta sama firma', nip: self::NIP))->nip, 'NIP jest unikalny tylko w organizacji.');
-        $this->assertRejected('nip', fn() => $save->save($seat, new ContractorData('Duplikat', nip: self::NIP)));
-        $this->assertRejected('nip', fn() => $save->save($seat, new ContractorData('Zły NIP', nip: '5252344079')));
-        $this->assertRejected('regon', fn() => $save->save($seat, new ContractorData('Zły REGON', regon: '123456786')));
+        $this->assertContractorRejected('nip', fn() => $save->save($seat, new ContractorData('Duplikat', nip: self::NIP)));
+        $this->assertContractorRejected('nip', fn() => $save->save($seat, new ContractorData('Zły NIP', nip: '5252344079')));
+        $this->assertContractorRejected('regon', fn() => $save->save($seat, new ContractorData('Zły REGON', regon: '123456786')));
         $this->assertSame(2, Contractor::query()->count());
     }
 
@@ -124,14 +124,16 @@ class ContractorsTest extends TestCase
         $this->assertSame([ContractStatus::Upcoming, ContractStatus::Active, ContractStatus::Expired], [
             $contract->status(CarbonImmutable::parse('2025-12-31')), $contract->status(CarbonImmutable::parse('2026-06-01')), $contract->status(CarbonImmutable::parse('2027-01-01')),
         ]);
-        $this->assertRejected('valid_to', fn() => $contracts->save($contractor, 'U/2', null, CarbonImmutable::parse('2026-02-01'), CarbonImmutable::parse('2026-01-01')));
+        $this->assertContractorRejected('valid_to', fn() => $contracts->save($contractor, 'U/2', null, CarbonImmutable::parse('2026-02-01'), CarbonImmutable::parse('2026-01-01')));
         $this->assertSame(1, ContractorContract::query()->count());
     }
 
     /**
+     * Zapis kontrahenta albo umowy odrzucony wyjątkiem ContractorRejected dla pola $field.
+     *
      * @param callable(): mixed $action
      */
-    private function assertRejected(string $field, callable $action): void
+    private function assertContractorRejected(string $field, callable $action): void
     {
         try {
             $action();

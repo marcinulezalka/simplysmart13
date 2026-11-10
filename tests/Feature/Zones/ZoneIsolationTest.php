@@ -105,7 +105,7 @@ class ZoneIsolationTest extends ZoneTestCase
 
     public function test_guest_is_sent_to_the_sign_in_of_the_zone(): void
     {
-        $this->get('/alpha/dashboard')->assertRedirect('/alpha/signin');
+        $this->get('/alpha/dashboard')->assertRedirect(route('alpha.auth.login'));
     }
 
     public function test_the_current_zone_does_not_outlive_the_request(): void
