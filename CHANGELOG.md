@@ -19,7 +19,12 @@ Format oparty na [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/).
 - `composer deploy` przed wdrożeniem uruchamia pełne bramki jakości — nowy `composer check` (lint, PHPStan, wszystkie zestawy testów oraz `composer check` zainstalowanych paczek) — i zatrzymuje się przy pierwszym błędzie, także z `--dry-run`.
 - Wdrożenie czyści cache konfiguracji, tras i widoków zaraz po instalacji paczek, restartuje workery kolejki i może przeładować PHP-FPM poleceniem `DEPLOY_RELOAD` / `PREPRODUCTION_RELOAD` z konfiguracji projektu (`simplysmart/polygon`), żeby opcache nie serwował starego kodu.
 - README opisuje system biznesowo (dla kogo, co zyskuje firma na starcie, jakość wdrożeń); opis techniczny — stos, baza danych, testy, standardy kodu i wdrożenie — przeniesiony do `CONTRIBUTING.md` i zaktualizowany (role spatie z zespołami-organizacjami, oba układy konfiguracji wdrożeń, seed typów jednostek i organizacji hero przy każdym wdrożeniu).
+- Wolne terminy dnia dzisiejszego (`simplysmart/polygon`): cały grafik dnia, także sloty, których godzina już minęła — nie znikają w trakcie dnia i można na nie zapisać, także nadliczbowo po końcu bloku; terminów nie ma tylko w dniach wcześniejszych niż dziś.
 - Zestaw testów `Packages` uruchamia testy integracyjne tylko paczek zainstalowanych w projekcie (`vendor/simplysmart/*/tests/Integration`) zamiast wszystkich paczek z `../packages/simplysmart/`.
+
+### Fixed
+
+- `APP_TIMEZONE` z `.env` działa (`simplysmart/polygon`): stockowy `config/app.php` ma na sztywno UTC, więc aplikacja liczyła czas o godzinę (latem dwie) wcześniej niż czas polski — np. wolne sloty, które już minęły, były pokazywane jako przyszłe.
 
 ## [13.0.0] - 2026-11-06
 

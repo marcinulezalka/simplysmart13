@@ -111,7 +111,7 @@ class CalendarTest extends ZoneTestCase
         $this->assertSame(3, ResourceSchedule::query()->count(), 'W kolejnym okresie ważności zasób może przejąć inny wykonawca.');
     }
 
-    public function test_free_slots_skip_past_taken_slots_and_days_off(): void
+    public function test_free_slots_keep_today_whole_and_skip_past_days_taken_slots_and_days_off(): void
     {
         $this->seed([CurrenciesSeeder::class, CountriesSeeder::class, HolidaysSeeder::class]);
         $this->save($this->input());
@@ -119,9 +119,13 @@ class CalendarTest extends ZoneTestCase
         $slots = $this->app->make(FreeSlots::class);
         CarbonImmutable::setTestNow(CalendarWeek::at('08:20'));
 
-        $this->assertSame(['08:30', '08:45'], $this->times(CalendarWeek::MONDAY));
+        $this->assertSame(['08:00', '08:15', '08:30', '08:45'], $this->times(CalendarWeek::MONDAY), 'Dziś — cały grafik, także sloty, których godzina już minęła.');
+        $this->book('08:00');
         $this->book('08:45');
-        $this->assertSame(['08:30'], $this->times(CalendarWeek::MONDAY));
+        $this->assertSame(['08:15', '08:30'], $this->times(CalendarWeek::MONDAY));
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-11-10 07:00'));
+        $this->assertSame([], $this->times(CalendarWeek::MONDAY), 'Dzień miniony — brak terminów.');
+        CarbonImmutable::setTestNow(CalendarWeek::at('08:20'));
         $this->assertSame([], $slots->on($this->clinic, $this->doctor, CarbonImmutable::parse('2026-11-11')), 'Święto Niepodległości to dzień wolny.');
         $this->assertCount(4, $slots->on($this->clinic, $this->doctor, CarbonImmutable::parse('2026-11-18')));
         $this->assertSame([], $slots->on($this->sibling, $this->doctor, CarbonImmutable::parse(CalendarWeek::MONDAY)));
@@ -199,11 +203,14 @@ class CalendarTest extends ZoneTestCase
         $this->assertNull($slots->roomTakenAfter($this->clinic, $block, CarbonImmutable::parse('2026-11-10')), 'Inny dzień tygodnia — gabinet wolny.');
     }
 
-    public function test_an_overflow_booking_needs_a_block_ending_in_the_future(): void
+    public function test_an_overflow_booking_after_today_block_end_but_not_on_a_past_day(): void
     {
         $this->save($this->input());
         CarbonImmutable::setTestNow(CalendarWeek::at('09:30'));
+        $booking = $this->app->make(BookSlot::class)->bookOverflow($this->clinic, $this->doctor, CalendarWeek::at('09:00'), self::KIND);
+        $this->assertTrue($booking->isOverflow(), 'Dziś — także po końcu bloku.');
 
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-11-10 07:00'));
         $this->expectException(SlotUnavailable::class);
         $this->app->make(BookSlot::class)->bookOverflow($this->clinic, $this->doctor, CalendarWeek::at('09:00'), self::KIND);
     }
