@@ -23,4 +23,5 @@ Route::get('organization', fn(CurrentOrganization $organization): array => [
     'visible' => $organization->visible()?->name,
     'hero' => $organization->isHero(),
     'contexts' => array_map(static fn(OrganizationContext $context): array => [$context->organization->name, $context->current], $organization->contexts()),
+    'default' => array_values(array_filter(array_map(static fn(OrganizationContext $context): ?string => $context->default ? $context->organization->name : null, $organization->contexts())))[0] ?? null,
 ])->name('organization');

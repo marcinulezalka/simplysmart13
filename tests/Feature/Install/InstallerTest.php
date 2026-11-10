@@ -16,18 +16,19 @@ namespace Tests\Feature\Install;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Simplysmart\Polygon\Database\IdSlots;
 use Simplysmart\Polygon\Database\Seeders\OrganizationsSeeder;
+use Simplysmart\Polygon\Install\Installer;
+use Simplysmart\Polygon\Install\InstallFileParser;
+use Simplysmart\Polygon\Install\InvalidInstallFile;
 use Simplysmart\Polygon\Install\OrganizationInstaller;
 use Simplysmart\Polygon\Models\Organization;
 use Simplysmart\Polygon\Models\OrganizationMember;
-use Simplysmart\Polygon\Install\InstallFileParser;
-use Simplysmart\Polygon\Install\Installer;
-use Simplysmart\Polygon\Install\InvalidInstallFile;
 use Simplysmart\Polygon\Models\Permissions\Permission;
 use Simplysmart\Polygon\Models\Permissions\Role;
 use Simplysmart\Polygon\Models\PolygonAccount;
-use Simplysmart\Polygon\Zones\PolygonPermission;
+use Simplysmart\Polygon\Organizations\DefaultOrganization;
 use Simplysmart\Polygon\Permissions\BaseRole;
 use Simplysmart\Polygon\Permissions\OrganizationRoles;
+use Simplysmart\Polygon\Zones\PolygonPermission;
 use Simplysmart\Polygon\Zones\PolygonZone;
 use Tests\TestCase;
 
@@ -323,6 +324,35 @@ class InstallerTest extends TestCase
 
         foreach ([['install_key' => 'x'], ['Bad-Key' => 1], ['deep' => ['a' => ['b' => ['c' => ['d' => 1]]]]]] as $attributes) {
             config(['polygon.install.files' => [$this->installFile($this->organizationFile(clinicAttributes: $attributes))]]);
+
+            $this->command('polygon:install')->assertFailed();
+            $this->assertSame(0, Organization::query()->where('name', 'Centrum Medyczne')->count());
+        }
+    }
+
+    public function test_default_organization_from_the_file_is_set_once_and_the_own_choice_stays(): void
+    {
+        $this->seed(OrganizationsSeeder::class);
+        $file = $this->organizationFile(extraAccount: ['email' => 'ewa@example.com', 'name' => 'Ewa Lis', 'organizations' => ['clinic' => [], 'clinic-desk' => ['registration']], 'defaults' => ['organization' => 'clinic-desk']]);
+        config(['polygon.install.files' => [$this->installFile($file)]]);
+
+        $this->command('polygon:install')->assertSuccessful();
+
+        $ewa = $this->zoneAccount('ewa@example.com');
+        $this->assertSame($this->installed('clinic-desk')->id, $ewa->defaultSetting(DefaultOrganization::SETTING));
+
+        $this->app->make(DefaultOrganization::class)->save($ewa, $this->installed('clinic'));
+        $this->command('polygon:install')->assertSuccessful();
+
+        $this->assertSame($this->installed('clinic')->id, $ewa->refresh()->defaultSetting(DefaultOrganization::SETTING), 'Instalacja nie nadpisuje wyboru osoby.');
+    }
+
+    public function test_default_organization_outside_the_account_organizations_writes_nothing(): void
+    {
+        $this->seed(OrganizationsSeeder::class);
+
+        foreach ([['organization' => 'clinic-desk'], ['organization' => 'unknown'], ['theme' => 'dark'], ['clinic']] as $defaults) {
+            config(['polygon.install.files' => [$this->installFile($this->organizationFile(extraAccount: ['email' => 'ewa@example.com', 'name' => 'Ewa Lis', 'organizations' => ['clinic' => []], 'defaults' => $defaults]))]]);
 
             $this->command('polygon:install')->assertFailed();
             $this->assertSame(0, Organization::query()->where('name', 'Centrum Medyczne')->count());

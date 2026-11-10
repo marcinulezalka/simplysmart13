@@ -16,10 +16,12 @@ namespace Tests\Feature\Zones;
 use Simplysmart\Polygon\Http\StatusMessage;
 use Simplysmart\Polygon\Auth\CreateZoneAccount;
 use Simplysmart\Polygon\Contracts\ZoneRegistry;
+use Simplysmart\Polygon\Database\ColumnNames;
 use Simplysmart\Polygon\Database\Seeders\HeroOrganizationSeeder;
 use Simplysmart\Polygon\Models\Organization;
 use Simplysmart\Polygon\Models\OrganizationMember;
 use Simplysmart\Polygon\Models\ZoneAccount;
+use Simplysmart\Polygon\Organizations\DefaultOrganization;
 use Simplysmart\Polygon\Organizations\OrganizationMembership;
 use Simplysmart\Polygon\Permissions\RequiredRole;
 use Tests\Fixtures\Zones\AlphaAccount;
@@ -28,7 +30,8 @@ use Tests\Fixtures\Zones\BetaAccount;
 /**
  * Kontekst organizacji konta zalogowanego w strefie (Contracts\CurrentOrganization, trasa
  * `account.organization.switch`): domyślnie najstarsze członkostwo, przełączenie tylko na własną organizację,
- * osobny kontekst w każdej strefie; organizacja hero (Simplysmart) — członkostwo kont z rolą hero, dostęp hero do
+ * osobny kontekst w każdej strefie, domyślna organizacja po zalogowaniu zapisana per konto (`json_default_settings`,
+ * trasa `account.organization.default`); organizacja hero (Simplysmart) — członkostwo kont z rolą hero, dostęp hero do
  * wszystkich aktywnych organizacji i brak organizacji hero na liście frontendu.
  */
 class OrganizationContextTest extends ZoneTestCase
@@ -46,6 +49,7 @@ class OrganizationContextTest extends ZoneTestCase
             'visible' => 'Północ',
             'hero' => false,
             'contexts' => [['Północ', true], ['Południe', false]],
+            'default' => null,
         ]);
 
         $this->post('/alpha/account/organization', ['organization' => $south->token])
@@ -87,6 +91,7 @@ class OrganizationContextTest extends ZoneTestCase
             'visible' => null,
             'hero' => false,
             'contexts' => [],
+            'default' => null,
         ]);
     }
 
@@ -131,11 +136,57 @@ class OrganizationContextTest extends ZoneTestCase
             'visible' => null,
             'hero' => true,
             'contexts' => [['Apteka', false], ['Przychodnia', false]],
+            'default' => null,
         ]);
 
         $this->post('/alpha/account/organization', ['organization' => $clinic->token])->assertRedirect(route('alpha.dashboard'));
         $this->get('/alpha/organization')->assertJsonPath('id', $clinic->id)->assertJsonPath('visible', 'Przychodnia')->assertJsonPath('hero', true);
         $this->assertSame(1, OrganizationMember::query()->count(), 'Hero nie dostaje członkostw w organizacjach klientów.');
+    }
+
+    public function test_saved_default_organization_is_the_context_after_the_next_sign_in(): void
+    {
+        $account = $this->account(AlphaAccount::class);
+        $north = $this->organization('Północ');
+        $south = $this->organization('Południe');
+        $this->member($account, $north);
+        $this->member($account, $south);
+
+        $this->signedIn($account, 'alpha')->from('/alpha/organization')->post('/alpha/account/organization/default', ['organization' => $south->token])
+            ->assertRedirect('/alpha/organization')
+            ->assertSessionHas(StatusMessage::KEY, text('account.organization.default_saved', ['name' => 'Południe']));
+        $this->get('/alpha/organization')->assertJsonPath('id', $north->id)->assertJsonPath('default', 'Południe');
+        $this->assertSame($south->id, $account->refresh()->defaultSetting(DefaultOrganization::SETTING));
+
+        $this->post(route('alpha.auth.logout'));
+        $this->signedIn($account->refresh(), 'alpha')->get('/alpha/organization')->assertJsonPath('id', $south->id)->assertJsonPath('contexts', [['Północ', false], ['Południe', true]]);
+    }
+
+    public function test_default_organization_keeps_other_default_settings_and_must_be_an_own_context(): void
+    {
+        $account = $this->account(AlphaAccount::class, [ColumnNames::JSON_DEFAULT_SETTINGS => ['report' => 'weekly']]);
+        $own = $this->organization('Własna');
+        $foreign = $this->organization('Obca');
+        $this->member($account, $own);
+
+        $this->signedIn($account, 'alpha')->post('/alpha/account/organization/default', ['organization' => $foreign->token])->assertRedirect();
+        $this->assertSessionError('organization', text('account.organization.unavailable'));
+        $this->assertSame(['report' => 'weekly'], $account->refresh()->getAttribute(ColumnNames::JSON_DEFAULT_SETTINGS));
+
+        $this->post('/alpha/account/organization/default', ['organization' => $own->token])->assertRedirect();
+        $this->assertSame(['report' => 'weekly', DefaultOrganization::SETTING => $own->id], $account->refresh()->getAttribute(ColumnNames::JSON_DEFAULT_SETTINGS));
+    }
+
+    public function test_default_organization_that_is_no_longer_a_context_falls_back_to_the_oldest_membership(): void
+    {
+        $first = $this->organization('Pierwsza');
+        $closed = $this->organization('Zamknięta');
+        $account = $this->account(AlphaAccount::class, [ColumnNames::JSON_DEFAULT_SETTINGS => [DefaultOrganization::SETTING => $closed->id]]);
+        $this->member($account, $first);
+        $this->member($account, $closed);
+        $closed->forceFill(['is_active' => false])->save();
+
+        $this->signedIn($account, 'alpha')->get('/alpha/organization')->assertJsonPath('id', $first->id)->assertJsonPath('default', null);
     }
 
     public function test_guest_cannot_switch_the_organization(): void
