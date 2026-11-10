@@ -6,6 +6,7 @@ Format oparty na [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/).
 
 ### Added
 
+- Ikony Iconify (`simplysmart/polygon`, `docs/ikony.md`): web component `iconify-icon` (zależność npm projektu, `package.json`), nazwy `zestaw:ikona`, dozwolone zestawy do wyboru przez użytkownika (`POLYGON_ICON_SETS`, domyślnie lucide, fluent, tabler, healthicons) ze sprawdzaniem ikony w API Iconify (`POLYGON_ICONIFY_API`) i komendy `polygon:icons:subset` oraz `polygon:icons:png` (ikony do e-maili jako PNG).
 - Reset PIN-u na stronie bezpieczeństwa konta strefy (`simplysmart/polygon`): po wpisaniu obecnego PIN-u PIN zostaje usunięty, konto wylogowane ze wszystkich urządzeń, osoba dostaje potwierdzenie e-mailem, a przy następnym logowaniu kodem z e-maila osoba ustawia nowy PIN.
 - Domyślna organizacja po zalogowaniu per osoba (`simplysmart/polygon`): zapisana w `json_default_settings` konta strefy — przez samą osobę w przełączniku organizacji albo w pliku instalacji (`accounts[].defaults.organization`); bez niej, jak dotąd, najstarsze członkostwo.
 - Build assetów paczek (`simplysmart/polygon`): `npm run build` / `npm run dev` budują Vite każdą paczkę z jej `vite.config.js` (SCSS przez `sass`) i projekt; `php artisan polygon:assets` udostępnia build pod `public/vendor/<paczka>`, także w deployu. Tryby kolorystyczne jasny, ciemny, WCAG i WCAG duży kontrast z osobnymi `theme.scss` strefy.
