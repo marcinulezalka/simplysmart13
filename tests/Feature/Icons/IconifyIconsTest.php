@@ -126,14 +126,14 @@ class IconifyIconsTest extends TestCase
         ]);
         $directory = sys_get_temp_dir() . '/polygon-icons-' . uniqid();
 
-        $this->artisan('polygon:icons:subset', ['directory' => $directory, 'icons' => ['lucide:heart', 'lucide:clock']])->assertSuccessful();
+        $this->command('polygon:icons:subset', ['directory' => $directory, 'icons' => ['lucide:heart', 'lucide:clock']])->assertSuccessful();
         Http::assertSent(static fn(Request $request): bool => $request->url() === 'https://api.iconify.design/lucide.json?icons=clock%2Cheart');
         $collection = IconifyCollection::load($directory . '/lucide.json');
         $this->assertSame(['clock', 'heart'], $collection->names());
         $this->assertStringNotContainsString('lastModified', (string) file_get_contents($directory . '/lucide.json'));
 
-        $this->artisan('polygon:icons:subset', ['directory' => $directory, 'icons' => ['fluent:nope']])->assertFailed()->expectsOutputToContain('nope');
-        $this->artisan('polygon:icons:subset', ['directory' => $directory, 'icons' => ['serce']])->assertFailed();
+        $this->command('polygon:icons:subset', ['directory' => $directory, 'icons' => ['fluent:nope']])->assertFailed()->expectsOutputToContain('nope');
+        $this->command('polygon:icons:subset', ['directory' => $directory, 'icons' => ['serce']])->assertFailed();
         $this->assertFileDoesNotExist($directory . '/fluent.json');
 
         unlink($directory . '/lucide.json');
@@ -144,8 +144,8 @@ class IconifyIconsTest extends TestCase
     {
         Http::fake();
 
-        $this->artisan('polygon:icons:png', ['icon' => 'serce', 'output' => sys_get_temp_dir() . '/icon.png'])->assertFailed();
-        $this->artisan('polygon:icons:png', ['icon' => 'lucide:heart', 'output' => sys_get_temp_dir() . '/icon.png', '--color' => 'red'])->assertFailed();
+        $this->command('polygon:icons:png', ['icon' => 'serce', 'output' => sys_get_temp_dir() . '/icon.png'])->assertFailed();
+        $this->command('polygon:icons:png', ['icon' => 'lucide:heart', 'output' => sys_get_temp_dir() . '/icon.png', '--color' => 'red'])->assertFailed();
         Http::assertNothingSent();
     }
 
@@ -171,6 +171,6 @@ class IconifyIconsTest extends TestCase
      */
     private function messages(mixed $value): array
     {
-        return array_values(Validator::make(['icon' => $value], ['icon' => [$this->app->make(IconName::class)]])->errors()->get('icon'));
+        return array_values(array_filter(Validator::make(['icon' => $value], ['icon' => [$this->app->make(IconName::class)]])->errors()->get('icon'), is_string(...)));
     }
 }
