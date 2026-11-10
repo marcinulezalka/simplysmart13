@@ -88,10 +88,18 @@
             "pint --config=pint.header.json tests"
         ],
         "analyse": "phpstan analyse --memory-limit=1G",
+        "check": [
+            "@lint",
+            "@check:packages",
+            "@analyse",
+            "@test"
+        ],
+        "check:packages": "for package in vendor/simplysmart/*/; do if grep -q '\"check\"' \"${package}composer.json\"; then echo \"> composer check (${package})\"; composer --working-dir=\"$package\" check || exit 1; fi; done",
         "release": "@php vendor/bin/version-release",
         "private:install": "@php vendor/bin/composer-private",
         "deploy": [
             "Composer\\Config::disableProcessTimeout",
+            "@composer run-script check @no_additional_args",
             "@php vendor/bin/deploy"
         ]
     },

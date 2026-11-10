@@ -194,4 +194,16 @@ Run from the root of the repository you changed:
 - `composer lint` — PER style plus `declare(strict_types=1);` in every PHP file (`composer format` fixes both).
 - `composer analyse` — PHPStan + Larastan at level `max` (`phpstan.neon`). Fix the cause; do not add ignores or a baseline.
 - Intelephense — no diagnostics (errors, warnings, hints) in changed PHP files. Fix the cause; never `@intelephense-ignore` or disabled diagnostics. VS Code's Problems panel (`getDiagnostics`) only shows files Intelephense has analyzed, so an empty result for an unopened file is not proof.
-- `composer test` — PHPUnit (`tests/Unit`, `tests/Feature`). Project tests cover integration with packages; a package tests its own logic in its own `tests/`.
+- `composer test` — PHPUnit, every suite in `phpunit.xml`: `Unit`, `Feature` and `Packages` (no `defaultTestSuite`). Project tests cover integration with packages; a package tests its own logic in its own `tests/`.
+- `composer check` — all of the above in one run: `lint`, `check:packages` (`composer check` of every installed package in `vendor/simplysmart/*` that defines one — lint, analyse and the package's own tests), `analyse`, `test`.
+
+### When to run them
+Each gate runs once per moment below, never after every edit — repeated runs only burn time and context.
+- **While working:** no gates. Only the single test file being written may be rerun.
+- **Before a commit (once, in one batch):** only what covers the change.
+  - `vendor/bin/pint --dirty --format agent` (plus `vendor/bin/pint --config=pint.header.json <changed tests/ files>`), `vendor/bin/phpstan analyse --memory-limit=1G <changed PHP files>`, Intelephense on the changed files, and `php artisan test --compact <selected test files>`.
+  - Select tests: the changed test files, plus tests that name a changed class (one `grep -rlE 'ClassA|ClassB' tests/`). For a changed base class, contract or trait, add the classes that use it to the pattern — a test may name only a subclass, an alias or a mock. Add tests in the directory mirroring the changed file's path, and the route or command name when the change touches one.
+  - A package change: Pint and PHPStan on the changed files in the package's repository; its own unit tests selected the same way (`composer test -- <files>`, when the package has a `test` script); its integration tests from the project root (`php artisan test --compact vendor/simplysmart/<package>/tests/Integration/<file>`); plus project tests that use the changed classes.
+  - Changes without code (CHANGELOG, docs, `.env.example`): no tests. Changed code that no test covers: write the missing test (`testing-best-practices`) instead of running the whole suite.
+  - Keep output short: `--compact`, trim long output (`| tail -n 40`); after a failure rerun only the failing tests (`--filter`).
+- **Before a deploy:** `composer deploy` runs `composer check` (full gates of the project and of every installed package, all suites) first and stops on any failure, so never run them by hand before it. `--dry-run` runs them too.

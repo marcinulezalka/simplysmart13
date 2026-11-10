@@ -30,6 +30,7 @@ Polskie komunikaty Laravela (walidacja, logowanie, hasła, paginacja) i helpery 
 
 - `composer lint` / `composer format` — Laravel Pint, preset PER + `declare(strict_types=1)` (`pint.json`, nagłówek licencji w testach: `pint.header.json`)
 - `composer analyse` — PHPStan + Larastan, poziom `max` (`phpstan.neon`), bez ignorów i baseline
+- `composer check` — wszystkie trzy naraz (`lint`, `analyse`, `test`) plus `check:packages`: `composer check` każdej zainstalowanej paczki z `vendor/simplysmart/*`, która go definiuje; `composer deploy` uruchamia go przed wdrożeniem (także z `--dry-run`) i przerywa przy błędzie. Przed commitem wystarczą testy obejmujące zmianę.
 - `composer test` — PHPUnit: `tests/Unit`, `tests/Feature` (integracja z paczkami, strefy testowe `alpha`, `beta`, `open` w `tests/Fixtures/Zones`) i zestaw `Packages` — testy integracyjne paczek zainstalowanych w projekcie (`vendor/simplysmart/*/tests/Integration`; `php artisan test --testsuite=Packages`)
 - `composer release -- --dry-run` (`vendor/bin/version-release` z `simplysmart/polygon`) — podgląd wydania SemVer na podstawie `CHANGELOG.md` (bez `--dry-run` zapisuje `VERSION` i `CHANGELOG.md`; MAJOR wymaga `--major-confirm`)
 
