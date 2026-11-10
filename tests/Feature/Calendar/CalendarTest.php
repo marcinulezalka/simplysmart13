@@ -175,14 +175,70 @@ class CalendarTest extends ZoneTestCase
         $second = $book->bookOverflow($this->clinic, $this->doctor, CalendarWeek::at('09:00'), self::KIND);
 
         $this->assertTrue($first->isOverflow());
-        $this->assertTrue($first->starts_at->equalTo($first->ends_at));
-        $this->assertSame(CalendarWeek::MONDAY . ' 09:00:00', $first->starts_at->format('Y-m-d H:i:s'));
+        $this->assertSame([CalendarWeek::MONDAY . ' 09:00', '09:15'], [$first->starts_at->format('Y-m-d H:i'), $first->ends_at->format('H:i')]);
+        $this->assertSame(['09:15', '09:30', '09:00'], [$second->starts_at->format('H:i'), $second->ends_at->format('H:i'), $second->overflowAfter()], 'Kolejna nadliczbowa — slot później, w kolejce bloku 08:00–09:00.');
         $this->assertSame($this->room->id, $second->resource_id);
         $this->assertFalse($this->book('08:15')->isOverflow());
         $this->assertSame(['08:00', '08:30', '08:45', '09:00', '09:15', '09:30', '09:45'], $this->times(CalendarWeek::MONDAY), 'Nadliczbowe nie zajmują slotów, także pierwszego slotu następnego bloku.');
 
         $this->expectException(SlotUnavailable::class);
         $book->bookOverflow($this->clinic, $this->doctor, CalendarWeek::at('08:30'), self::KIND);
+    }
+
+    public function test_a_cancelled_overflow_frees_its_place_in_the_queue_and_the_room_check_follows_the_queue(): void
+    {
+        $block = $this->save($this->input());
+        $other = $this->account(AlphaAccount::class, ['email' => 'drugi@example.com', 'name' => 'Drugi']);
+        $this->save($this->input($other, startsAt: '09:30', endsAt: '10:00'));
+        $book = $this->app->make(BookSlot::class);
+        $slots = $this->app->make(FreeSlots::class);
+        $first = $book->bookOverflow($this->clinic, $this->doctor, CalendarWeek::at('09:00'), self::KIND);
+        $this->assertNull($slots->roomTakenAfter($this->clinic, $block, CarbonImmutable::parse(CalendarWeek::MONDAY)), 'Kolejna nadliczbowa o 09:15 — gabinet wolny.');
+
+        $book->bookOverflow($this->clinic, $this->doctor, CalendarWeek::at('09:00'), self::KIND);
+        $taken = $slots->roomTakenAfter($this->clinic, $block, CalendarWeek::at('00:00'));
+        $this->assertInstanceOf(RoomTaken::class, $taken, 'Kolejna nadliczbowa o 09:30 — gabinet zajęty.');
+        $this->assertSame('09:30', $taken->from->format('H:i'));
+
+        $this->app->make(BookingStatusChange::class)->change($first, BookingStatus::Cancelled, $this->doctor);
+        $this->assertSame('09:00', $slots->nextOverflow($block, CalendarWeek::at('00:00'))->format('H:i'), 'Miejsce odwołanej wraca do kolejki.');
+        $this->assertSame('09:00', $book->bookOverflow($this->clinic, $this->doctor, CalendarWeek::at('09:00'), self::KIND)->starts_at->format('H:i'));
+    }
+
+    public function test_a_schedule_with_a_future_overflow_booking_cannot_be_deleted(): void
+    {
+        $schedule = $this->save($this->input());
+        $this->app->make(BookSlot::class)->bookOverflow($this->clinic, $this->doctor, CalendarWeek::at('09:00'), self::KIND);
+        $this->app->make(BookSlot::class)->bookOverflow($this->clinic, $this->doctor, CalendarWeek::at('09:00'), self::KIND);
+
+        $this->expectException(ScheduleRejected::class);
+        $this->app->make(SaveSchedule::class)->delete($schedule);
+    }
+
+    public function test_the_repair_command_gives_overflow_bookings_from_before_the_queue_their_own_times(): void
+    {
+        $this->save($this->input());
+        $queued = $this->app->make(BookSlot::class)->bookOverflow($this->clinic, $this->doctor, CalendarWeek::at('09:00'), self::KIND);
+        $legacy = [];
+
+        foreach ([1, 2] as $index) {
+            $booking = $queued->replicate(['token']);
+            $booking->forceFill([
+                'name' => CalendarWeek::MONDAY . ' 09:00',
+                'starts_at' => CalendarWeek::at('09:00'),
+                'ends_at' => CalendarWeek::at('09:00'),
+                'json_attributes' => [ResourceBooking::OVERFLOW => true],
+            ])->save();
+            $legacy[$index] = $booking;
+        }
+
+        $this->command('polygon:calendar:overflow-repair')->assertSuccessful();
+        $times = static fn(ResourceBooking $booking): array => [$booking->refresh()->starts_at->format('H:i'), $booking->ends_at->format('H:i'), $booking->overflowAfter()];
+
+        $this->assertSame(['09:00', '09:15', '09:00'], $times($queued), 'Rezerwacja już w kolejce zostaje na miejscu.');
+        $this->assertSame(['09:15', '09:30', '09:00'], $times($legacy[1]));
+        $this->assertSame(['09:30', '09:45', '09:00'], $times($legacy[2]));
+        $this->command('polygon:calendar:overflow-repair')->expectsOutputToContain('Nowe godziny: 0')->assertSuccessful();
     }
 
     public function test_the_room_after_a_block_is_taken_by_another_schedule_or_free(): void

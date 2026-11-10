@@ -16,6 +16,7 @@ Format oparty na [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/).
 
 ### Changed
 
+- Rezerwacje nadliczbowe (`simplysmart/polygon`) dostają własne, kolejne godziny po końcu bloku grafiku (co długość slotu, na jeden slot) zamiast wspólnej godziny końca bloku; zapisane wcześniej porządkuje jednorazowo `php artisan polygon:calendar:overflow-repair`. Grafiku z przyszłymi rezerwacjami nadliczbowymi nie można już usunąć.
 - `composer deploy` przed wdrożeniem uruchamia pełne bramki jakości — nowy `composer check` (lint, PHPStan, wszystkie zestawy testów oraz `composer check` zainstalowanych paczek) — i zatrzymuje się przy pierwszym błędzie, także z `--dry-run`.
 - Wdrożenie czyści cache konfiguracji, tras i widoków zaraz po instalacji paczek, restartuje workery kolejki i może przeładować PHP-FPM poleceniem `DEPLOY_RELOAD` / `PREPRODUCTION_RELOAD` z konfiguracji projektu (`simplysmart/polygon`), żeby opcache nie serwował starego kodu.
 - README opisuje system biznesowo (dla kogo, co zyskuje firma na starcie, jakość wdrożeń); opis techniczny — stos, baza danych, testy, standardy kodu i wdrożenie — przeniesiony do `CONTRIBUTING.md` i zaktualizowany (role spatie z zespołami-organizacjami, oba układy konfiguracji wdrożeń, seed typów jednostek i organizacji hero przy każdym wdrożeniu).
