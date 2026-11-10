@@ -6,6 +6,7 @@ Format oparty na [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/).
 
 ### Added
 
+- Reset PIN-u na stronie bezpieczeństwa konta strefy (`simplysmart/polygon`): po wpisaniu obecnego PIN-u PIN zostaje usunięty, konto wylogowane ze wszystkich urządzeń, osoba dostaje potwierdzenie e-mailem, a przy następnym logowaniu kodem z e-maila osoba ustawia nowy PIN.
 - Domyślna organizacja po zalogowaniu per osoba (`simplysmart/polygon`): zapisana w `json_default_settings` konta strefy — przez samą osobę w przełączniku organizacji albo w pliku instalacji (`accounts[].defaults.organization`); bez niej, jak dotąd, najstarsze członkostwo.
 - Build assetów paczek (`simplysmart/polygon`): `npm run build` / `npm run dev` budują Vite każdą paczkę z jej `vite.config.js` (SCSS przez `sass`) i projekt; `php artisan polygon:assets` udostępnia build pod `public/vendor/<paczka>`, także w deployu. Tryby kolorystyczne jasny, ciemny, WCAG i WCAG duży kontrast z osobnymi `theme.scss` strefy.
 - Organizacje i personel w plikach instalacji (`simplysmart/polygon`): sekcja `organizations` (drzewo, typ jednostki, dane firmy) i `organizations` w kontach stref; nowy typ jednostki „Siedziba”; `"parent": "simplysmart"` wpina organizację pod niewidoczną we frontendzie organizację hero (root operatora).
