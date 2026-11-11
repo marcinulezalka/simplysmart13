@@ -17,8 +17,12 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Simplysmart\Polygon\Auth\AccountColumns;
 use Simplysmart\Polygon\Contracts\BlindIndex;
+use Simplysmart\Polygon\Models\Organization;
+use Simplysmart\Polygon\Models\OrganizationMember;
 use Simplysmart\Polygon\Models\PolygonAccount;
 use Simplysmart\Polygon\Models\User;
+use Simplysmart\Polygon\Organizations\DefaultOrganization;
+use Simplysmart\Polygon\Permissions\OrganizationRoles;
 use Simplysmart\Polygon\Zones\PolygonZone;
 use Tests\TestCase;
 
@@ -68,6 +72,41 @@ class CreateAccountCommandTest extends TestCase
         $this->assertSame(0, PolygonAccount::withTrashed()->count());
     }
 
+    public function test_an_account_joins_organizations_with_roles_in_each_and_gets_the_default_context(): void
+    {
+        $this->role('owner', PolygonZone::GUARD);
+        $this->role('support', PolygonZone::GUARD);
+        $clinic = $this->organization('Poradnia', ['json_attributes' => ['install_key' => 'poradnia']]);
+        $desk = $this->organization('Recepcja', ['json_attributes' => ['install_key' => 'recepcja']]);
+
+        $this->command('polygon:account:create', ['email' => 'anna@example.com', 'name' => 'Anna Nowak', '--organization' => ['poradnia=owner,support']])->assertSuccessful();
+        $anna = PolygonAccount::query()->sole();
+        $roles = $this->app->make(OrganizationRoles::class);
+        $this->assertSame(['owner', 'support'], $this->sorted($roles->names($anna, $clinic->id)));
+        $this->assertSame([], $roles->names($anna, null), 'Bez ról globalnych.');
+        $this->assertTrue(OrganizationMember::query()->where(Organization::FOREIGN_KEY, $clinic->id)->exists(), 'Konto jest personelem organizacji.');
+        $this->assertSame($clinic->id, $this->app->make(DefaultOrganization::class)->id($anna), 'Jedyna organizacja to domyślny kontekst.');
+
+        $this->command('polygon:account:create', ['email' => 'ewa@example.com', 'name' => 'Ewa Lis', '--organization' => ['poradnia=owner', 'recepcja=support'], '--default-organization' => 'recepcja'])->assertSuccessful();
+        $ewa = PolygonAccount::query()->get()->sole(static fn(PolygonAccount $account): bool => $account->emailAddress() === 'ewa@example.com');
+        $this->assertSame(['support'], $roles->names($ewa, $desk->id));
+        $this->assertSame($desk->id, $this->app->make(DefaultOrganization::class)->id($ewa));
+    }
+
+    public function test_an_unknown_organization_or_role_in_it_creates_nothing(): void
+    {
+        $this->organization('Poradnia', ['json_attributes' => ['install_key' => 'poradnia']]);
+
+        $this->command('polygon:account:create', ['email' => 'jan@example.com', 'name' => 'Jan', '--organization' => ['brak=owner']])
+            ->expectsOutput('Nie ma organizacji o kluczu brak — konto nie zostało założone.')
+            ->assertFailed();
+        $this->command('polygon:account:create', ['email' => 'jan@example.com', 'name' => 'Jan', '--organization' => ['poradnia=brak']])->assertFailed();
+        $this->command('polygon:account:create', ['email' => 'jan@example.com', 'name' => 'Jan', '--organization' => ['poradnia'], '--default-organization' => 'inna'])->assertFailed();
+
+        $this->assertSame(0, PolygonAccount::withTrashed()->count());
+        $this->assertSame(0, OrganizationMember::query()->count());
+    }
+
     public function test_taken_address_fails_or_is_skipped_on_request(): void
     {
         $arguments = ['email' => 'jan@example.com', 'name' => 'Jan'];
@@ -79,5 +118,15 @@ class CreateAccountCommandTest extends TestCase
         $this->assertSame(1, PolygonAccount::withTrashed()->count());
     }
 
+    /**
+     * @param list<string> $names
+     *
+     * @return list<string>
+     */
+    private function sorted(array $names): array
+    {
+        sort($names);
 
+        return $names;
+    }
 }
