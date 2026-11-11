@@ -191,6 +191,19 @@ class FakturowniaClientTest extends TestCase
         $this->assertSame('DE', ClientMapper::toData($clients[3])->countryCode);
     }
 
+    public function test_a_client_with_fields_longer_than_the_columns_is_saved_with_names_cut_and_long_identifiers_dropped(): void
+    {
+        $longName = '" KARTIS" S.C. ANETA KUBAS WSPÓLNIK SPÓŁKI CYWILNEJ , Hurtownia " Kwartet" Aneta Kubas';
+        $data = ClientMapper::toData(['id' => 7, 'name' => str_repeat('Ż', 300), 'shortcut' => $longName, 'tax_no' => self::NIP, 'register_number' => str_repeat('1', 15), 'post_code' => str_repeat('9', 17), 'phone' => str_repeat('5', 33), 'mobile_phone' => '600 100 200', 'email' => str_repeat('a', 251) . '@x.pl']);
+
+        $this->assertSame(str_repeat('Ż', 255), $data->name);
+        $this->assertSame(rtrim(mb_substr($longName, 0, 64)), $data->shortName);
+        $this->assertSame([null, null, '600 100 200', null], [$data->regon, $data->postalCode, $data->phone, $data->email]);
+
+        $contractor = $this->app->make(SaveContractor::class)->save($this->organization('NZOZ Test'), $data);
+        $this->assertSame($data->shortName, $contractor->refresh()->short_name);
+    }
+
     /**
      * @return array<string, array{0: InvoiceTax, 1: string|null, 2: int|float|string}>
      */
