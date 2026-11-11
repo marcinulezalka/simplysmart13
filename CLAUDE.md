@@ -181,6 +181,7 @@ Goal: upgrading Laravel stays a `composer.json` bump plus `composer update`.
 ## Release & Deployment
 - One release implementation: `simplysmart/polygon` (`src/Deploy/Release/` in `../packages/simplysmart/polygon`). Never add a second one to the project. Preview with `composer release -- --dry-run`; without `--dry-run` it really writes `VERSION` and `CHANGELOG.md` (MAJOR requires `--major-confirm`), so release only when the user asks.
 - Deploy only with `composer deploy -- <project>` (`vendor/bin/deploy` from `simplysmart/polygon`), run on the development machine: it updates pre-production first, then asks about production (`--production` / `--no-production`, `--with-push` pushes first, `--dry-run` shows the plan). Project config lives in `infrastructure/deploy/vendors/<project>/<project>.env` or `infrastructure/deploy/vendors/<project>.env`, with the optional install file `<project>.json` next to it (git-ignored; template `vendor/simplysmart/polygon/resources/deploy/deploy-vendor.env.example`). Steps and options: `vendor/simplysmart/polygon/docs/deploy.md`.
+- Server cron: one entry per project, `cd <app> && PHP_BIN=<php> vendor/bin/polygon-cron` every minute (polygon's `bin/polygon-cron`: `schedule:run` plus a queue worker unless `QUEUE_CONNECTION=sync`, errors in `storage/logs/cron.log`). New server jobs go into that script, never into a second cron line. One-time server setup and checks: `vendor/simplysmart/polygon/docs/deploy.md` → „Cron” → „Uruchomienie na serwerze”.
 - Never push or deploy unless the user asks.
 
 ## Skills Ownership

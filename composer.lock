@@ -3277,7 +3277,7 @@
             "dist": {
                 "type": "path",
                 "url": "../packages/simplysmart/polygon",
-                "reference": "93b7e65e88af6c740bc1ae2b5c0517594bdf0c0f"
+                "reference": "f33986c66fdf717ec6568964adbbf5ccb1e4c3c0"
             },
             "require": {
                 "ext-bcmath": "*",
@@ -3295,6 +3295,7 @@
             "bin": [
                 "bin/composer-private",
                 "bin/deploy",
+                "bin/polygon-cron",
                 "bin/version-release"
             ],
             "type": "library",
@@ -3331,6 +3332,11 @@
                 ],
                 "test": [
                     "phpunit"
+                ],
+                "check": [
+                    "@lint",
+                    "@analyse",
+                    "@test"
                 ]
             },
             "license": [
