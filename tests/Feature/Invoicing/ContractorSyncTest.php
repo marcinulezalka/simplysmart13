@@ -23,6 +23,7 @@ use Simplysmart\Polygon\Contractors\ContractorData;
 use Simplysmart\Polygon\Contractors\SaveContractor;
 use Simplysmart\Polygon\Integrations\Fakturownia\FakturowniaFailed;
 use Simplysmart\Polygon\Invoicing\ContractorFingerprint;
+use Simplysmart\Polygon\Invoicing\ContractorPushGate;
 use Simplysmart\Polygon\Invoicing\InvoicingAccounts;
 use Simplysmart\Polygon\Invoicing\InvoicingRejected;
 use Simplysmart\Polygon\Invoicing\SaveInvoicingAccount;
@@ -133,6 +134,27 @@ class ContractorSyncTest extends TestCase
         $this->fakeApi(['updated_at' => '2026-11-12T08:00:00.000+01:00', 'city' => 'Gdańsk']);
         $remoteWins = $this->sync()->pull($account);
         $this->assertSame([1, 0, 'Gdańsk'], [$remoteWins->updated, $remoteWins->pushed, $local->refresh()->city], 'Nowsza zmiana w Fakturowni nadpisuje kontrahenta bez zmian od synchronizacji.');
+    }
+
+    public function test_a_local_only_contractor_is_never_sent_to_the_invoicing_system(): void
+    {
+        $account = $this->account();
+        $this->app->make(ContractorPushGate::class)->closed(function (): void {
+            $local = $this->app->make(SaveContractor::class)->save($this->root, new ContractorData('Pracodawca z importu', nip: self::NIP));
+            $local->markInvoicingLocalOnly();
+            $local->save();
+        });
+        $local = Contractor::query()->sole();
+        $this->assertTrue($local->isInvoicingLocalOnly());
+
+        $this->app->make(SaveContractor::class)->save($this->root, new ContractorData('Pracodawca z importu (zmiana)', nip: self::NIP), $local);
+        Queue::assertNotPushed(PushContractorJob::class);
+
+        $this->fakeResponses([]);
+        $this->runJob($local);
+        $report = $this->sync()->pushPending($account);
+        $this->assertSame(0, $report->pushed);
+        Http::assertNothingSent();
     }
 
     public function test_a_saved_contractor_is_pushed_once_and_found_by_nip_instead_of_duplicated(): void
