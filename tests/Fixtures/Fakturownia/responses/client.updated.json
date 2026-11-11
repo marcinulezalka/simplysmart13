@@ -1,0 +1,20 @@
+{
+    "id": 101,
+    "name": "Firma Budowlana Sp. z o.o.",
+    "shortcut": null,
+    "tax_no": "5252344078",
+    "register_number": null,
+    "post_code": "00-001",
+    "city": "Łódź",
+    "street": "ul. Prosta 1",
+    "country": "PL",
+    "email": null,
+    "phone": null,
+    "mobile_phone": null,
+    "note": null,
+    "company": true,
+    "kind": "buyer",
+    "external_id": null,
+    "created_at": "2026-10-01T09:00:00.000+02:00",
+    "updated_at": "2026-11-10T12:05:00.000+01:00"
+}

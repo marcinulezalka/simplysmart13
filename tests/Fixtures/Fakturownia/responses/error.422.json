@@ -1,0 +1,11 @@
+{
+    "code": "error",
+    "message": {
+        "buyer_name": [
+            "nie może być puste"
+        ],
+        "positions": [
+            "nie może być puste"
+        ]
+    }
+}

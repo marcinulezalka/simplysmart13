@@ -1,0 +1,9 @@
+[
+    {
+        "id": 9001,
+        "number": "12/11/2026",
+        "token": "aBcD1234invoiceToken",
+        "oid": "OID",
+        "kind": "vat"
+    }
+]

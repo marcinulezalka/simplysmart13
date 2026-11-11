@@ -1,0 +1,14 @@
+{
+    "id": 9001,
+    "number": "12/11/2026",
+    "token": "aBcD1234invoiceToken",
+    "oid": "OID",
+    "kind": "vat",
+    "issue_date": "2026-11-10",
+    "sell_date": "2026-11-10",
+    "payment_to": "2026-11-24",
+    "price_net": "100.00",
+    "price_gross": "123.00",
+    "currency": "PLN",
+    "client_id": 101
+}
