@@ -1,0 +1,20 @@
+{
+    "id": 205,
+    "name": "Nowa Firma Sp. z o.o.",
+    "shortcut": "Nowa Firma",
+    "tax_no": "781-176-76-96",
+    "register_number": null,
+    "post_code": "61-001",
+    "city": "Poznań",
+    "street": "ul. Długa 7",
+    "country": "PL",
+    "email": "biuro@nowafirma.example",
+    "phone": null,
+    "mobile_phone": null,
+    "note": null,
+    "company": true,
+    "kind": "buyer",
+    "external_id": null,
+    "created_at": "2026-11-14T09:00:00.000+01:00",
+    "updated_at": "2026-11-14T09:00:00.000+01:00"
+}
