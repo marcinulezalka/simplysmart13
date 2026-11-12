@@ -4,6 +4,10 @@ Format oparty na [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Zmienne `POLYGON_TEST_MYSQL_DATABASE`/`_USERNAME`/`_PASSWORD` (`.env.example`): osobna, pusta baza MySQL do `tests/Feature/Calendar/BookingConcurrencyTest.php` (test blokad wierszy — SQLite w pamięci nie blokuje); bez nich test jest pomijany.
+
 ## [13.1.0] - 2026-11-12
 
 ### Added
