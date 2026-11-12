@@ -4,6 +4,8 @@ Format oparty na [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/).
 
 ## [Unreleased]
 
+## [13.1.0] - 2026-11-12
+
 ### Added
 
 - Ikony Iconify (`simplysmart/polygon`, `docs/ikony.md`): web component `iconify-icon` (zależność npm projektu, `package.json`), nazwy `zestaw:ikona`, dozwolone zestawy do wyboru przez użytkownika (`POLYGON_ICON_SETS`, domyślnie lucide, fluent, tabler, healthicons) ze sprawdzaniem ikony w API Iconify (`POLYGON_ICONIFY_API`) i komendy `polygon:icons:subset` oraz `polygon:icons:png` (ikony do e-maili jako PNG).
