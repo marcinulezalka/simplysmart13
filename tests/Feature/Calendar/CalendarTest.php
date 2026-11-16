@@ -132,6 +132,27 @@ class CalendarTest extends ZoneTestCase
         $this->assertSame([CalendarWeek::MONDAY, '2026-11-16', '2026-11-18'], array_map(static fn(CarbonImmutable $day): string => $day->toDateString(), $slots->days($this->clinic, $this->doctor, CarbonImmutable::parse(CalendarWeek::MONDAY), 10)));
     }
 
+    public function test_free_slots_of_a_period_load_the_calendar_once_whatever_its_length(): void
+    {
+        $this->seed([CurrenciesSeeder::class, CountriesSeeder::class, HolidaysSeeder::class]);
+        $this->save($this->input());
+        $this->save($this->input(weekday: 3));
+        CarbonImmutable::setTestNow(CalendarWeek::at('07:00'));
+        $slots = $this->app->make(FreeSlots::class);
+        $monday = CarbonImmutable::parse(CalendarWeek::MONDAY);
+
+        DB::enableQueryLog();
+        $slots->between($this->clinic, $this->doctor, $monday, $monday);
+        $oneDay = count(DB::getQueryLog());
+        DB::flushQueryLog();
+        $fourWeeks = $slots->between($this->clinic, $this->doctor, $monday, $monday->addDays(27));
+        $this->assertSame($oneDay, count(DB::getQueryLog()), 'Okres czterech tygodni — tyle samo zapytań co jeden dzień.');
+        DB::disableQueryLog();
+
+        $this->assertSame([CalendarWeek::MONDAY, '2026-11-16', '2026-11-18', '2026-11-23', '2026-11-25', '2026-11-30', '2026-12-02'], array_keys($fourWeeks), 'Poniedziałki i środy bez Święta Niepodległości (śr 11 listopada).');
+        $this->assertCount(4, $fourWeeks['2026-11-18']);
+    }
+
     public function test_the_schedule_and_the_booking_name_their_performer(): void
     {
         $schedule = $this->save($this->input());
