@@ -223,7 +223,7 @@ class ResourceLeaseTest extends ZoneTestCase
 
     public function test_an_on_demand_lease_fills_only_the_free_time_of_the_room(): void
     {
-        $this->lease();
+        $exclusive = $this->lease();
         $this->schedule($this->clinic, $this->doctor, 2, '12:00', '14:00');
         $dietitian = $this->account(AlphaAccount::class, ['email' => 'dietetyk@example.com', 'name' => 'Dietetyk']);
         $other = $this->organization('Dietetyka');
@@ -245,6 +245,7 @@ class ResourceLeaseTest extends ZoneTestCase
         $booking = $this->app->make(BookSlot::class)->book($flexible, $dietitian, CalendarWeek::at('14:00', CalendarWeek::TUESDAY), self::KIND);
         $this->app->make(BookSlot::class)->book($flexible, $dietitian, CalendarWeek::at('15:00', CalendarWeek::TUESDAY), self::KIND);
         $this->assertSame(['booked' => 2], $this->app->make(ResourceLeases::class)->bookingCounts($lease, CarbonImmutable::parse('2026-11-01'), CarbonImmutable::parse('2026-11-30')));
+        $this->assertSame([$exclusive->id => [], $lease->id => ['booked' => 2]], $this->app->make(ResourceLeases::class)->bookingCountsFor([$exclusive, $lease], CarbonImmutable::parse('2026-11-01'), CarbonImmutable::parse('2026-11-30')), 'Wiele najmów jednym zapytaniem — każdy liczy tylko wizyty swojej kooperacji.');
         $this->assertSame(1, ResourceBooking::query()->whereKey($booking->id)->count());
     }
 
