@@ -78,4 +78,14 @@ class LocalHelpersTest extends TestCase
 
         local_month(13);
     }
+
+    public function test_compare_sorts_names_in_the_alphabet_of_the_language(): void
+    {
+        App::setLocale('pl');
+        $names = ['Żak', 'zawada', 'Łoś', 'Lis', 'Adamska', 'ćwik', 'Cichy'];
+
+        usort($names, static fn(string $first, string $second): int => local_compare($first, $second));
+
+        $this->assertSame(['Adamska', 'Cichy', 'ćwik', 'Lis', 'Łoś', 'zawada', 'Żak'], $names, 'Polskie litery po swoich łacińskich odpowiednikach, bez rozróżniania wielkości liter.');
+    }
 }
