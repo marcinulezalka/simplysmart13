@@ -10,3 +10,5 @@ parameters:
         - database
         - routes
         - tests
+        - vendor/simplysmart/polygon/tests/Integration
+        - vendor/simplysmart/polygon/tests/Fixtures

@@ -42,7 +42,8 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "Tests\\": "tests/"
+            "Tests\\": "tests/",
+            "Simplysmart\\Polygon\\Tests\\": "vendor/simplysmart/polygon/tests/"
         }
     },
     "scripts": {
