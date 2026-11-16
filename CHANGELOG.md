@@ -8,6 +8,10 @@ Format oparty na [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/).
 
 - Zmienne `POLYGON_TEST_MYSQL_DATABASE`/`_USERNAME`/`_PASSWORD` (`.env.example`): osobna, pusta baza MySQL do `tests/Feature/Calendar/BookingConcurrencyTest.php` (test blokad wierszy — SQLite w pamięci nie blokuje); bez nich test jest pomijany.
 
+### Changed
+
+- Wzór konfiguracji wdrożenia: `vendor/simplysmart/polygon/src/resources/deploy/deploy-vendor.env.example` (polygon w układzie `src/`); plik instalacji polygonu: `vendor/simplysmart/polygon/src/database/install/polygon.json`.
+
 ## [13.1.0] - 2026-11-12
 
 ### Added

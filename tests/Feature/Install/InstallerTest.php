@@ -163,7 +163,7 @@ class InstallerTest extends TestCase
 
     public function test_enums_match_the_package_file_and_have_labels(): void
     {
-        $file = $this->app->make(InstallFileParser::class)->parse(dirname(__DIR__, 3) . '/vendor/simplysmart/polygon/database/install/polygon.json');
+        $file = $this->app->make(InstallFileParser::class)->parse(dirname(__DIR__, 3) . '/vendor/simplysmart/polygon/src/database/install/polygon.json');
 
         $this->assertEqualsCanonicalizing(array_column(PolygonPermission::cases(), 'value'), $file->zones[0]->permissions);
         $this->assertEqualsCanonicalizing(array_column(BaseRole::cases(), 'value'), array_keys($file->catalog));

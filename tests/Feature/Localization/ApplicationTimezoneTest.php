@@ -15,7 +15,7 @@ namespace Tests\Feature\Localization;
 
 use Carbon\CarbonImmutable;
 use Simplysmart\Polygon\Localization\ApplicationTimezone;
-use Simplysmart\Polygon\PolygonConfig;
+use Simplysmart\Polygon\Support\PolygonConfig;
 use Tests\TestCase;
 
 /**

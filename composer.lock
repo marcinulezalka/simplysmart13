@@ -3273,11 +3273,11 @@
         },
         {
             "name": "simplysmart/polygon",
-            "version": "dev-main",
+            "version": "dev-refactor/struktura-src",
             "dist": {
                 "type": "path",
                 "url": "../packages/simplysmart/polygon",
-                "reference": "0aa7070e74d7fef03a6533c44a59481066e0b163"
+                "reference": "828c153e5f31d0711f6278e1280a69b273fe1a62"
             },
             "require": {
                 "ext-bcmath": "*",
@@ -3302,17 +3302,17 @@
             "extra": {
                 "laravel": {
                     "providers": [
-                        "Simplysmart\\Polygon\\PolygonServiceProvider"
+                        "Simplysmart\\Polygon\\Providers\\PolygonServiceProvider"
                     ]
                 }
             },
             "autoload": {
                 "psr-4": {
-                    "Simplysmart\\Polygon\\Database\\Seeders\\": "database/seeders/",
-                    "Simplysmart\\Polygon\\": "src/"
+                    "Simplysmart\\Polygon\\Database\\Seeders\\": "src/database/seeders/",
+                    "Simplysmart\\Polygon\\": "src/app/"
                 },
                 "files": [
-                    "src/helpers.php"
+                    "src/app/helpers.php"
                 ]
             },
             "autoload-dev": {

@@ -52,7 +52,7 @@ Każde wdrożenie buduje świeży manifest wdrożeniowy (`composer.deploy.json` 
 Po migracjach każde wdrożenie uruchamia `php artisan polygon:organizations:seed` (typy jednostek i organizacja hero) i `php artisan polygon:install`: organizacje, uprawnienia i role z plików paczek, `POLYGON_INSTALL_FILES` z `.env` oraz plik instalacji projektu `<projekt>.json`, jeśli jest (deploy przesyła go do obu środowisk jako `storage/app/<projekt>.install.json`). Instalacja jest idempotentna. Słowników deploy nie seeduje — przy pierwszej instalacji uruchom w każdym środowisku `php artisan db:seed --force`.
 
 ```bash
-cp vendor/simplysmart/polygon/resources/deploy/deploy-vendor.env.example infrastructure/deploy/vendors/simplysmart13.env   # raz, uzupełnij
+cp vendor/simplysmart/polygon/src/resources/deploy/deploy-vendor.env.example infrastructure/deploy/vendors/simplysmart13.env   # raz, uzupełnij
 composer deploy -- simplysmart13 --dry-run          # podgląd planu (z listą paczek manifestu)
 vendor/bin/composer-private --deploy --dry-run      # sam manifest: paczki z repozytoriów git
 composer deploy -- simplysmart13 --with-push        # git push projektu i paczek, przed-produkcja, potem pytanie o produkcję
