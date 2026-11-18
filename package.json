@@ -7,6 +7,10 @@
         "dev": "node vendor/simplysmart/polygon/bin/assets.mjs dev"
     },
     "devDependencies": {
+        "@iconify-json/heroicons": "^1.2.3",
+        "@iconify-json/lucide": "^1.2.156",
+        "@iconify-json/system-uicons": "^1.2.4",
+        "@iconify-json/tabler": "^1.2.46",
         "@tailwindcss/vite": "^4.0.0",
         "concurrently": "^10.0.3",
         "iconify-icon": "3.0.4",
