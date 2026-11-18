@@ -11,6 +11,7 @@ Format oparty na [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/).
 ### Changed
 
 - Wzór konfiguracji wdrożenia: `vendor/simplysmart/polygon/src/resources/deploy/deploy-vendor.env.example` (polygon w układzie `src/`); plik instalacji polygonu: `vendor/simplysmart/polygon/src/database/install/polygon.json`.
+- Strona startowa (`/`): neutralna paleta szarości (Bleached Silk, First Star, Mountain Mist, Welded Iron, Black Olive) zamiast niebieskawej, w obu motywach jasnym i ciemnym.
 
 ## [13.1.0] - 2026-11-12
 

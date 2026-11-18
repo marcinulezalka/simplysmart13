@@ -20,14 +20,19 @@
     <style>
         :root {
             color-scheme: light dark;
-            --ss-color-bg: light-dark(#f8fafc, #020617);
-            --ss-color-surface: light-dark(#ffffff, #0f172a);
-            --ss-color-surface-muted: light-dark(#f1f5f9, #1e293b);
-            --ss-color-border: light-dark(#f3f4f6, #1e293b);
-            --ss-color-border-strong: light-dark(#e5e7eb, #334155);
-            --ss-color-text: light-dark(#111827, #f9fafb);
-            --ss-color-muted: light-dark(#6b7280, #9ca3af);
-            --ss-color-accent: light-dark(#1f2937, #f3f4f6);
+            --ss-palette-bleached-silk: #f7f7f6;
+            --ss-palette-first-star: #dbdad6;
+            --ss-palette-mountain-mist: #a4a3a0;
+            --ss-palette-welded-iron: #6e6e6c;
+            --ss-palette-black-olive: #373736;
+            --ss-color-bg: light-dark(var(--ss-palette-bleached-silk), var(--ss-palette-black-olive));
+            --ss-color-surface: light-dark(#ffffff, color-mix(in srgb, var(--ss-palette-black-olive) 80%, var(--ss-palette-welded-iron) 20%));
+            --ss-color-surface-muted: light-dark(var(--ss-palette-first-star), color-mix(in srgb, var(--ss-palette-black-olive) 65%, var(--ss-palette-welded-iron) 35%));
+            --ss-color-border: light-dark(var(--ss-palette-first-star), color-mix(in srgb, var(--ss-palette-black-olive) 60%, var(--ss-palette-welded-iron) 40%));
+            --ss-color-border-strong: light-dark(var(--ss-palette-mountain-mist), color-mix(in srgb, var(--ss-palette-black-olive) 40%, var(--ss-palette-welded-iron) 60%));
+            --ss-color-text: light-dark(var(--ss-palette-black-olive), var(--ss-palette-bleached-silk));
+            --ss-color-muted: light-dark(var(--ss-palette-welded-iron), var(--ss-palette-mountain-mist));
+            --ss-color-accent: light-dark(var(--ss-palette-black-olive), var(--ss-palette-bleached-silk));
             --ss-radius-card: 1rem;
             --ss-radius-control: 0.875rem;
             --ss-radius-frame: 1.75rem;
@@ -36,7 +41,7 @@
             --ss-font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
             --ss-font-mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
             --ss-icon-stroke: 1.75;
-            --ss-color-tile-border: light-dark(rgb(15 23 42 / 0.09), rgb(255 255 255 / 0.1));
+            --ss-color-tile-border: light-dark(rgb(55 55 54 / 0.09), rgb(247 247 246 / 0.12));
             --ss-space-1: 0.25rem;
             --ss-space-2: 0.5rem;
             --ss-space-3: 0.75rem;
