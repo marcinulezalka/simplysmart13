@@ -3273,11 +3273,11 @@
         },
         {
             "name": "simplysmart/polygon",
-            "version": "dev-refactor/struktura-src",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "../packages/simplysmart/polygon",
-                "reference": "aa16e421ce1ac00c0c74922f78c0da135ad79437"
+                "reference": "72bfe27ea5ddb4926d700472841027da82b1c33d"
             },
             "require": {
                 "ext-bcmath": "*",
