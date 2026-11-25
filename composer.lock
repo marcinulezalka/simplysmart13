@@ -3273,11 +3273,11 @@
         },
         {
             "name": "simplysmart/polygon",
-            "version": "dev-main",
+            "version": "dev-feature/wiki-docs-preview",
             "dist": {
                 "type": "path",
                 "url": "../packages/simplysmart/polygon",
-                "reference": "0c96fe8cb7f44f7bea05de2fa3451aa670ac1dd5"
+                "reference": "ab5454859f5f781d9502d91646eab2641991c14f"
             },
             "require": {
                 "ext-bcmath": "*",
