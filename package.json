@@ -7,6 +7,7 @@
         "dev": "node vendor/simplysmart/polygon/bin/assets.mjs dev"
     },
     "devDependencies": {
+        "@iconify-json/circle-flags": "^1.2.14",
         "@iconify-json/heroicons": "^1.2.3",
         "@iconify-json/lucide": "^1.2.156",
         "@iconify-json/system-uicons": "^1.2.4",
